@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <base href="../">
+  <!-- TESTE: o mesmo aplicativo, ligado a um banco simulado (testes/banco-simulado.js). Gerado a partir do index.html. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Lava Rápido</title>
+  <meta name="description" content="Controle de chegada, lavagem e entrega de carros para lava-rápido, com aviso no WhatsApp, fidelidade e painel do dono.">
+  <meta name="theme-color" content="#0b63ce">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Lava Rápido">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="format-detection" content="telephone=no">
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="css/app.css?v=1">
+</head>
+<body>
+
+  <!-- tela de abertura (some quando o app termina de carregar) -->
+  <div id="abrindo" class="abrindo"><div class="gira"></div><p>Abrindo…</p></div>
+
+  <!-- entrada (login) -->
+  <section id="login" class="login" hidden></section>
+
+  <!-- aplicativo -->
+  <div id="app" class="app" hidden>
+    <aside class="lateral" id="lateral"></aside>
+    <div class="principal">
+      <header class="topo" id="topo"></header>
+      <div id="faixa"></div>
+      <main id="tela" class="tela" tabindex="-1"></main>
+    </div>
+    <nav class="rodape-nav" id="rodapeNav" aria-label="Menu"></nav>
+  </div>
+
+  <div id="modalRoot"></div>
+  <div id="toastRoot" class="toasts" aria-live="polite"></div>
+
+  <script src="js/config.js?v=1"></script>
+  <script src="js/util.js?v=1"></script>
+  <script src="js/catalogo.js?v=1"></script>
+  <script src="js/store.js?v=1"></script>
+  <script src="js/demo.js?v=1"></script>
+  <script src="testes/banco-simulado.js"></script>
+  <script src="js/nuvem.js?v=1"></script>
+  <script src="js/db.js?v=1"></script>
+  <script src="js/telas/balcao.js?v=1"></script>
+  <script src="js/telas/entrada.js?v=1"></script>
+  <script src="js/telas/patio.js?v=1"></script>
+  <script src="js/telas/clientes.js?v=1"></script>
+  <script src="js/telas/inicio.js?v=1"></script>
+  <script src="js/telas/resultados.js?v=1"></script>
+  <script src="js/telas/financeiro.js?v=1"></script>
+  <script src="js/telas/ajustes.js?v=1"></script>
+  <script src="js/telas/admin.js?v=1"></script>
+  <script src="js/telas/ajuda.js?v=1"></script>
+  <script src="js/app.js?v=1"></script>
+</body>
+</html>

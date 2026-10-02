@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Acompanhe seu carro</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#0b63ce">
+  <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/favicon-32.png">
+  <style>
+    /* Página que o CLIENTE do lava-rápido abre pelo link do WhatsApp (sem login). */
+    :root { --marca: #0b63ce; --marca-txt: #fff; --tinta: #10151c; --mudo: #5f6975; --linha: #dde2e8; --ok: #0a7d43; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f2f4f7; color: var(--tinta); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+    h1, h2, p { margin: 0; }
+    .topo { background: var(--marca); color: var(--marca-txt); padding: calc(18px + env(safe-area-inset-top, 0px)) 18px 54px; display: flex; align-items: center; gap: 12px; }
+    .topo img { width: 48px; height: 48px; border-radius: 12px; object-fit: contain; background: #fff; }
+    .topo h1 { font-size: 19px; }
+    main { max-width: 480px; margin: -38px auto 0; padding: 0 14px 30px; display: grid; gap: 12px; }
+    .cartao { background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 2px 10px rgba(16, 21, 28, .07); display: grid; gap: 10px; }
+    .situacao { font-size: 24px; font-weight: 800; line-height: 1.2; }
+    .mudo { color: var(--mudo); } .pequeno { font-size: 13px; } .centro { text-align: center; }
+    .placa { display: inline-block; border: 2px solid #1b2a4a; border-radius: 6px; padding: 3px 9px 0; font-weight: 800; letter-spacing: 1.2px; box-shadow: inset 0 4px 0 #1b4fa3; }
+    .etapas { display: grid; grid-template-columns: repeat(4, 1fr); margin-top: 6px; }
+    .etapa { display: grid; justify-items: center; gap: 6px; font-size: 12px; color: var(--mudo); font-weight: 600; position: relative; text-align: center; }
+    .etapa i { width: 30px; height: 30px; border-radius: 50%; background: #fff; border: 3px solid var(--linha); display: grid; place-items: center; z-index: 1; font-style: normal; font-weight: 800; color: #fff; }
+    .etapa::before { content: ""; position: absolute; top: 13px; left: -50%; width: 100%; height: 4px; background: var(--linha); }
+    .etapa:first-child::before { display: none; }
+    .etapa.feita i { background: var(--ok); border-color: var(--ok); } .etapa.feita::before { background: var(--ok); }
+    .etapa.feita { color: var(--tinta); }
+    .etapa.atual i { box-shadow: 0 0 0 5px rgba(10, 125, 67, .18); }
+    .par { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid #eef1f4; font-size: 15px; }
+    .par:last-child { border-bottom: 0; } .par > span:first-child { color: var(--mudo); } .par b { text-align: right; }
+    .selos { display: flex; flex-wrap: wrap; gap: 6px; }
+    .selos i { width: 28px; height: 28px; border-radius: 50%; border: 2px dashed #c3cad3; }
+    .selos i.cheio { background: var(--marca); border: 0; }
+    .btn { display: flex; align-items: center; justify-content: center; min-height: 54px; border-radius: 14px; font-weight: 700; font-size: 17px; text-decoration: none; color: var(--tinta); background: #fff; border: 1.5px solid var(--linha); padding: 8px 16px; text-align: center; }
+    .btn.zap { background: #128c4a; color: #fff; border-color: transparent; }
+    .btn.marca { background: var(--marca); color: var(--marca-txt); border-color: transparent; }
+    .premio { background: #fff7dd; border: 2px solid #e6b422; border-radius: 14px; padding: 12px; font-weight: 600; color: #4d3a00; }
+  </style>
+</head>
+<body>
+  <header class="topo" id="topo"><h1>Acompanhe seu carro</h1></header>
+  <main id="corpo"><div class="cartao"><p class="mudo centro">Carregando…</p></div></main>
+
+  <script src="../js/config.js?v=1"></script>
+  <script>
+  (function () {
+    var p = new URLSearchParams(location.search), token = p.get('t') || '', demo = p.get('demo') === '1';
+    var CFG = window.LAVA_CFG || {};
+    var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    var p2 = function (n) { return String(n).padStart(2, '0'); };
+    var hora = function (d) { d = new Date(d); return p2(d.getHours()) + ':' + p2(d.getMinutes()); };
+    var mesmoDia = function (a, b) { a = new Date(a); b = new Date(b); return a.toDateString() === b.toDateString(); };
+    var quando = function (d) { return (mesmoDia(d, Date.now()) ? 'hoje às ' : p2(new Date(d).getDate()) + '/' + p2(new Date(d).getMonth() + 1) + ' às ') + hora(d); };
+    var brl = function (n) { return 'R$ ' + (Number(n) || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    var placaFmt = function (s) { return /^SEM-/.test(s) ? '' : /^[A-Z]{3}\d{4}$/.test(s) ? s.slice(0, 3) + '-' + s.slice(3) : s; };
+    var textoSobre = function (hex) { var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return '#fff'; var n = parseInt(m[1], 16), f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(n >> 16 & 255) + 0.7152 * f(n >> 8 & 255) + 0.0722 * f(n & 255) > 0.45 ? '#10151c' : '#fff'; };
+
+    // demonstração: lê os dados de exemplo guardados neste aparelho
+    function buscarDemo() {
+      var c = JSON.parse(localStorage.getItem('lr.demo') || 'null'), s = c && c.s; if (!s) return null;
+      var a = s.atendimentos.filter(function (x) { return x.token === token; })[0]; if (!a) return null;
+      var cli = s.clientes.filter(function (x) { return x.id === a.cliente_id; })[0] || {};
+      return { lava: s.lava.nome, marca: s.lava.marca, fidelidade: (s.lava.config || {}).fidelidade, numero: a.numero, status: a.status, veiculo: a.veiculo, placa: a.placa,
+        servicos: a.servicos.map(function (x) { return x.nome; }), total: a.total, previsao: a.previsao, entrada_em: a.entrada_em, pronto_em: a.pronto_em, entregue_em: a.entregue_em,
+        nome: String(cli.nome || '').split(' ')[0], saldo: Math.max(0, (cli.visitas || 0) - (cli.pontos_usados || 0)) };
+    }
+    function buscar() {
+      if (demo) return Promise.resolve(buscarDemo());
+      return fetch(CFG.url + '/rest/v1/rpc/acompanhar', { method: 'POST', headers: { apikey: CFG.chave, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_token: token }) })
+        .then(function (r) { if (!r.ok) throw new Error('falha'); return r.json(); });
+    }
+
+    var ETAPAS = [['aguardando', 'Recebido'], ['lavando', 'Lavando'], ['pronto', 'Pronto'], ['entregue', 'Entregue']];
+    function pintar(d) {
+      var corpo = document.getElementById('corpo');
+      if (!d) { corpo.innerHTML = '<div class="cartao"><p class="situacao">Link não encontrado</p><p class="mudo">Confira o link que você recebeu no WhatsApp ou fale com o lava-rápido.</p></div>'; return true; }
+      var m = d.marca || {}, cor = /^#[0-9a-f]{6}$/i.test(m.cor || '') ? m.cor : '#0b63ce';
+      document.documentElement.style.setProperty('--marca', cor);
+      document.documentElement.style.setProperty('--marca-txt', textoSobre(cor));
+      document.querySelector('meta[name="theme-color"]').content = cor;
+      document.title = d.lava + ': seu carro';
+      document.getElementById('topo').innerHTML = (m.logo ? '<img src="' + esc(m.logo) + '" alt="">' : '') + '<h1>' + esc(d.lava) + '</h1>';
+
+      var i = ETAPAS.findIndex(function (e) { return e[0] === d.status; });
+      var frase = { aguardando: 'Seu carro está na fila', lavando: 'Estamos lavando seu carro', pronto: 'Seu carro está pronto!', entregue: 'Carro entregue. Obrigado!', cancelado: 'Atendimento cancelado' }[d.status];
+      var detalhe = d.status === 'pronto' ? 'Pode vir buscar quando quiser.' : d.status === 'entregue' ? 'Volte sempre!' : d.status === 'cancelado' ? 'Fale com o lava-rápido se tiver dúvida.' : d.previsao ? 'Previsão: ' + quando(d.previsao) + '. Avisamos no WhatsApp quando ficar pronto.' : 'Avisamos no WhatsApp quando ficar pronto.';
+      var etapas = d.status === 'cancelado' ? '' : '<div class="etapas">' + ETAPAS.map(function (e, n) { return '<div class="etapa' + (n <= i ? ' feita' : '') + (n === i ? ' atual' : '') + '"><i>' + (n <= i ? '✓' : '') + '</i>' + e[1] + '</div>'; }).join('') + '</div>';
+
+      var f = d.fidelidade || { ativo: true, niveis: [{ pontos: 10, desconto: 10 }, { pontos: 20, desconto: 30 }] };
+      var niveis = (f.niveis || []).filter(function (n) { return n.pontos > 0; }).sort(function (a, b) { return a.pontos - b.pontos; });
+      var fid = '';
+      if (f.ativo !== false && niveis.length && d.status !== 'cancelado') {
+        var prox = niveis.filter(function (n) { return n.pontos > d.saldo; })[0], ganho = niveis.filter(function (n) { return n.pontos <= d.saldo; }).pop();
+        var meta = prox ? prox.pontos : niveis[niveis.length - 1].pontos, selos = '';
+        for (var k = 0; k < Math.min(meta, 20); k++) selos += '<i class="' + (k < d.saldo ? 'cheio' : '') + '"></i>';
+        fid = '<div class="cartao"><h2 style="font-size:17px">Seu cartão fidelidade</h2><div class="selos">' + selos + '</div>'
+          + (ganho ? '<p class="premio">Você tem ' + ganho.desconto + '% de desconto para usar na próxima lavagem!</p>' : '')
+          + (prox ? '<p class="mudo">' + d.saldo + ' de ' + prox.pontos + ' lavagens. ' + (prox.pontos - d.saldo === 1 ? 'Falta 1' : 'Faltam ' + (prox.pontos - d.saldo)) + ' para ganhar ' + prox.desconto + '% de desconto.</p>' : '') + '</div>';
+      }
+      var tel = String(m.telefone || '').replace(/\D/g, '');
+      corpo.innerHTML = '<div class="cartao">'
+        + (d.nome ? '<p class="mudo">Olá, ' + esc(d.nome) + '!</p>' : '')
+        + '<p class="situacao">' + frase + '</p><p class="mudo">' + detalhe + '</p>' + etapas + '</div>'
+        + '<div class="cartao">'
+        + '<div class="par"><span>Veículo</span><b>' + esc(d.veiculo || '') + (placaFmt(d.placa) ? ' <span class="placa">' + esc(placaFmt(d.placa)) + '</span>' : '') + '</b></div>'
+        + '<div class="par"><span>Serviço</span><b>' + esc((d.servicos || []).join(' + ')) + '</b></div>'
+        + '<div class="par"><span>Total</span><b>' + brl(d.total) + '</b></div>'
+        + '<div class="par"><span>Chegada</span><b>' + quando(d.entrada_em) + '</b></div>'
+        + (d.numero ? '<div class="par"><span>Ficha</span><b>' + d.numero + '</b></div>' : '') + '</div>'
+        + fid
+        + (d.status === 'entregue' && m.google ? '<a class="btn marca" href="' + esc(m.google) + '" target="_blank" rel="noopener">Avaliar no Google ⭐</a>' : '')
+        + (tel.length >= 10 ? '<a class="btn zap" href="https://wa.me/55' + tel + '" target="_blank" rel="noopener">Falar com o ' + esc(d.lava) + '</a>' : '')
+        + (m.endereco ? '<p class="mudo centro pequeno">' + esc(m.endereco) + '</p>' : '')
+        + '<p class="mudo centro pequeno">Esta página se atualiza sozinha.</p>';
+      return d.status === 'entregue' || d.status === 'cancelado';
+    }
+
+    function rodar() {
+      buscar().then(function (d) { if (!pintar(d)) setTimeout(rodar, 30000); })
+        .catch(function () { document.getElementById('corpo').innerHTML = '<div class="cartao"><p class="situacao">Sem conexão</p><p class="mudo">Não consegui buscar as informações agora. Tentando de novo…</p></div>'; setTimeout(rodar, 15000); });
+    }
+    rodar();
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) buscar().then(pintar).catch(function () {}); });
+  })();
+  </script>
+</body>
+</html>
