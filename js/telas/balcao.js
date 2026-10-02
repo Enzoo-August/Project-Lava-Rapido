@@ -35,6 +35,11 @@
             <b>Entregues hoje</b><small>carros que já saíram</small>
           </a>
         </div>
+        ${(() => {
+          const ag = DB.agendaDoDia(), prox = ag.find((g) => new Date(g.quando).getTime() > Date.now() - 15 * 60000);
+          return `<a class="faixa-agenda" href="#/agenda">${U.icon('calendario')}<span><b>${ag.length ? `Agenda de hoje: ${ag.length} horário${ag.length > 1 ? 's' : ''}` : 'Agenda: nenhum horário hoje'}</b>
+            <small>${prox ? `próximo: ${U.hora(prox.quando)} · ${U.esc(prox.nome)}${prox.servico ? ' · ' + U.esc(prox.servico) : ''}` : 'toque para marcar um horário'}</small></span>${U.icon('seta', 'fim')}</a>`;
+        })()}
         ${DB.bloqueado() ? '' : `<a class="atalho" href="#/clientes">${U.icon('busca')}<span>Procurar cliente pelo nome ou telefone</span></a>`}`;
     }
   };

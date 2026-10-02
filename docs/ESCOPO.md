@@ -1,6 +1,6 @@
 # Escopo do produto
 
-Versão 1, de 02/10/2026. Este é o padrão que vale para todos os lava-rápidos. A personalização de cada cliente (logo, cor, preços, textos) é feita dentro do próprio aplicativo, em Ajustes, sem mexer no código.
+Versão 2, de 02/10/2026 (a versão 1 foi publicada no mesmo dia; a 2 trouxe agenda, serviço livre e barra escura). Este é o padrão que vale para todos os lava-rápidos. A personalização de cada cliente (logo, cor, preços, textos) é feita dentro do próprio aplicativo, em Ajustes, sem mexer no código.
 
 ## O problema que resolve
 
@@ -33,6 +33,18 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - **Entregar:** mostra o total e pergunta a forma de pagamento.
 - **Cliente novo entregue:** oferece pedir avaliação no Google (uma vez só por cliente).
 - Corrigir engano: voltar etapa, trocar serviço, cancelar, desfazer entrega.
+- **Serviço fora da tabela:** botão "Outro serviço" para escrever o nome e o valor na hora (ex.: polimento de farol).
+- **Serviço "a combinar":** serviço sem preço na tabela pergunta o valor quando é marcado. Na volta do cliente, já vem com o valor que ele pagou da última vez.
+- **Entrega em outro dia:** polimento, vitrificação e outros serviços longos já sugerem o dia seguinte. Dá para escolher dia e hora.
+
+### Agenda (para quem trabalha com hora marcada)
+
+- Marcar horário: nome (o aplicativo sugere quem já é cliente e preenche telefone, carro e placa), dia, hora, serviço (da tabela ou escrito), valor combinado, observação.
+- Lista por dia (hoje, amanhã, próximos). Horário passado sem resposta fica em destaque.
+- **Lembrar:** WhatsApp com o lembrete do horário já escrito.
+- **Chegou:** abre a entrada do carro já preenchida com cliente, carro e serviço combinados. O horário fica marcado como "chegou".
+- Também: mudar dia/hora, "não veio" e cancelar.
+- Aparece no balcão (faixa "Agenda de hoje"), no menu do funcionário e no Início do dono.
 - Ajuda em 5 passos e instruções para instalar no celular.
 
 ### Fidelidade
@@ -52,11 +64,12 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - **Resultados:** hoje, 7 dias, mês, mês passado, 90 dias, com comparação. Frases prontas ("sábado é o dia mais forte"), movimento por dia, serviços mais vendidos, horários de pico, dias da semana, formas de pagamento, tamanho dos veículos, quem lavou.
 - **Financeiro:** entrou, saiu, sobrou. Despesas, movimento dia a dia e planilha do mês.
 - **Clientes:** busca por nome, telefone ou placa; filtros Com prêmio, Quase lá, Sumidos, Novos; ficha com histórico; chamar de volta pelo WhatsApp.
-- **Ajustes:** marca (nome, logo, cor, telefone, link do Google), serviços e preços, fidelidade, textos das mensagens, equipe e acessos, formas de pagamento, etapas.
+- **Ajustes:** marca (nome, logo, cor, barra do alto clara, preta ou na cor da marca, telefone, link do Google), serviços e preços, fidelidade, textos das mensagens, equipe e acessos, formas de pagamento, etapas.
 
 ### Administrador (quem vende)
 
 - Cadastra o lava com o login do dono; o lava nasce com serviços de exemplo.
+- Em cada lava: cria acessos (dono ou funcionário), troca senha de quem esqueceu e copia o link.
 - Vê uso de cada lava (carros em 30 dias, último movimento).
 - Assinatura: plano, pago até, ativa ou suspensa. Suspenso, o lava consulta mas não registra.
 
@@ -89,7 +102,9 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 | **Fotos do carro na chegada** (prova de risco e amassado) | Não feito; hoje é anotação em texto. | Armazenamento de imagens no banco. |
 | **Ícone e nome próprios de cada lava no celular** | O app instalado se chama "Lava Rápido"; dentro dele aparecem nome, logo e cor do lava. | Uma pasta de entrada por cliente (pequena, gerada por script). |
 | **Aviso sonoro de carro novo** para o dono | Não feito. | Notificação push. |
-| **Mensalistas / fiado, comissão por lavador, agendamento** | Não feito. | Definir com os primeiros clientes. |
+| **Mensalistas / fiado, comissão por lavador** | Não feito. | Definir com os primeiros clientes. |
+| **Lembrete automático da agenda** (sem tocar em enviar) | Hoje é um toque no botão Lembrar. | Mesma API paga do WhatsApp. |
+| **Logo em alta resolução da Garagem Z** | Está a imagem pequena que veio (79 px). | Pedir o arquivo original ao Flávio; o dono troca em Ajustes → Meu lava-rápido. |
 
 ## Custos
 

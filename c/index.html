@@ -13,7 +13,7 @@
     * { box-sizing: border-box; }
     body { margin: 0; background: #f2f4f7; color: var(--tinta); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
     h1, h2, p { margin: 0; }
-    .topo { background: var(--marca); color: var(--marca-txt); padding: calc(18px + env(safe-area-inset-top, 0px)) 18px 54px; display: flex; align-items: center; gap: 12px; }
+    .topo { background: var(--topo, var(--marca)); color: var(--topo-txt, var(--marca-txt)); padding: calc(18px + env(safe-area-inset-top, 0px)) 18px 54px; display: flex; align-items: center; gap: 12px; }
     .topo img { width: 48px; height: 48px; border-radius: 12px; object-fit: contain; background: #fff; }
     .topo h1 { font-size: 19px; }
     main { max-width: 480px; margin: -38px auto 0; padding: 0 14px 30px; display: grid; gap: 12px; }
@@ -80,7 +80,9 @@
       var m = d.marca || {}, cor = /^#[0-9a-f]{6}$/i.test(m.cor || '') ? m.cor : '#0b63ce';
       document.documentElement.style.setProperty('--marca', cor);
       document.documentElement.style.setProperty('--marca-txt', textoSobre(cor));
-      document.querySelector('meta[name="theme-color"]').content = cor;
+      var topo = m.topo === 'escuro' ? '#10151c' : cor;
+      document.documentElement.style.setProperty('--topo', topo); document.documentElement.style.setProperty('--topo-txt', textoSobre(topo));
+      document.querySelector('meta[name="theme-color"]').content = topo;
       document.title = d.lava + ': seu carro';
       document.getElementById('topo').innerHTML = (m.logo ? '<img src="' + esc(m.logo) + '" alt="">' : '') + '<h1>' + esc(d.lava) + '</h1>';
 
@@ -112,7 +114,7 @@
         + (d.numero ? '<div class="par"><span>Ficha</span><b>' + d.numero + '</b></div>' : '') + '</div>'
         + fid
         + (d.status === 'entregue' && m.google ? '<a class="btn marca" href="' + esc(m.google) + '" target="_blank" rel="noopener">Avaliar no Google ⭐</a>' : '')
-        + (tel.length >= 10 ? '<a class="btn zap" href="https://wa.me/55' + tel + '" target="_blank" rel="noopener">Falar com o ' + esc(d.lava) + '</a>' : '')
+        + (tel.length >= 10 ? '<a class="btn zap" href="https://wa.me/55' + tel + '" target="_blank" rel="noopener">Falar no WhatsApp</a>' : '')
         + (m.endereco ? '<p class="mudo centro pequeno">' + esc(m.endereco) + '</p>' : '')
         + '<p class="mudo centro pequeno">Esta página se atualiza sozinha.</p>';
       return d.status === 'entregue' || d.status === 'cancelado';

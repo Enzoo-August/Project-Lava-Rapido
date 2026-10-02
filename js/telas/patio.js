@@ -172,7 +172,7 @@
           ${!bloqueado && voltarPara ? `<button type="button" data-v="voltar">${U.icon('voltar')}<span>${voltarPara[1]}</span></button>` : ''}
           ${!bloqueado && aberto ? `<button type="button" class="perigo" data-v="cancelar">${U.icon('x')}<span>Cancelar este atendimento</span></button>` : ''}
         </div>`,
-      aoAbrir: (el, fechar) => { el.querySelector('.lista-menu').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b) return; if (b.dataset.v === 'zap') U.zap(c.telefone, `Olá, ${U.primeiroNome(c.nome)}! Aqui é do ${DB.lava().nome}.`); if (b.dataset.v === 'comprovante') U.zap(c.telefone, DB.msg('entrada', a, c)); fechar(b.dataset.v); }); }
+      aoAbrir: (el, fechar) => { el.querySelector('.lista-menu').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b) return; if (b.dataset.v === 'zap') U.zap(c.telefone, `Olá, ${U.primeiroNome(c.nome)}! Aqui é ${DB.lava().nome}.`); if (b.dataset.v === 'comprovante') U.zap(c.telefone, DB.msg('entrada', a, c)); fechar(b.dataset.v); }); }
     });
     if (acao === 'voltar') { DB.status(a, voltarPara[0]); U.toast('Feito'); }
     if (acao === 'cancelar' && await U.confirmar('Cancelar este atendimento?', `${a.veiculo || 'Carro'} ${U.placaFmt(a.placa)} sai do pátio e não conta como lavagem.`, 'Cancelar atendimento', 'btn-perigo')) { DB.status(a, 'cancelado'); U.toast('Atendimento cancelado'); }
@@ -188,8 +188,8 @@
   });
 
   // lista de serviços para marcar (usada aqui e na chegada do carro)
-  Atend.servicosHtml = (porte, marcados) => DB.servicos().map((s) => {
-    const p = DB.preco(s, porte);
+  Atend.servicosHtml = (porte, marcados, vals) => DB.servicos().map((s) => {
+    const p = vals && vals[s.id] != null ? vals[s.id] : DB.preco(s, porte);
     return `<button type="button" class="serv${marcados.includes(s.id) ? ' sel' : ''}" data-serv="${s.id}">
       <span class="serv-check">${U.icon('check')}</span>
       <span class="serv-nome"><b>${U.esc(s.nome)}</b><small>${U.duracao(s.minutos)}</small></span>
@@ -197,27 +197,65 @@
     </button>`;
   }).join('');
 
+  // serviços escritos na hora (não estão na tabela de preços)
+  Atend.extrasHtml = (extras) => extras.map((x) => `<button type="button" class="serv sel" data-tirar-extra="${x.id}">
+      <span class="serv-check">${U.icon('check')}</span>
+      <span class="serv-nome"><b>${U.esc(x.nome)}</b><small>toque para tirar</small></span>
+      <span class="serv-preco">${U.brl0(x.valor)}</span>
+    </button>`).join('');
+  Atend.pedirValor = (nome, atual) => U.modal({
+    titulo: nome,
+    html: `<label class="campo grande"><span>Quanto vai custar? (R$)</span><input name="valor" inputmode="decimal" value="${atual ? String(atual).replace('.', ',') : ''}" placeholder="0,00"></label>`,
+    aoAbrir: (el) => el.querySelector('input').focus(),
+    acoes: [{ txt: 'Voltar', valor: null }, { txt: 'Confirmar', cls: 'btn-marca', aoTocar: (el) => { const v = U.num(U.campos(el).valor); if (v <= 0) { U.toast('Informe o valor.', 'bad'); return false; } return v; } }]
+  }).then((v) => (typeof v === 'number' ? v : null));
+  Atend.pedirServicoLivre = () => U.modal({
+    titulo: 'Outro serviço',
+    html: `<label class="campo grande"><span>Qual serviço?</span><input name="nome" placeholder="Ex.: Polimento de farol" autocapitalize="sentences"></label>
+      <label class="campo grande"><span>Valor (R$)</span><input name="valor" inputmode="decimal" placeholder="0,00"></label>`,
+    aoAbrir: (el) => el.querySelector('input').focus(),
+    acoes: [{ txt: 'Voltar', valor: null }, { txt: 'Adicionar', cls: 'btn-marca', aoTocar: (el) => {
+      const f = U.campos(el), valor = U.num(f.valor);
+      if (f.nome.length < 2) { U.toast('Escreva o nome do serviço.', 'bad'); return false; }
+      if (valor <= 0) { U.toast('Informe o valor.', 'bad'); return false; }
+      return { id: 'livre-' + U.uuid().slice(0, 8), nome: f.nome.charAt(0).toUpperCase() + f.nome.slice(1), valor };
+    } }]
+  }).then((x) => (x && x.nome ? x : null));
+
   Atend.editarServicos = (a) => {
     const v = DB.veiculo(a.placa), porte = v ? v.porte : 'm';
     let ids = (a.servicos || []).map((s) => s.id).filter((id) => Store.por('servicos', id));
+    let extras = (a.servicos || []).filter((s) => !Store.por('servicos', s.id));
+    const vals = {}; (a.servicos || []).forEach((s) => { if (Store.por('servicos', s.id)) vals[s.id] = Number(s.valor) || 0; });
     const podeValor = DB.ehDono() || DB.cfg().funcionarioMudaValor;
-    const soma = () => DB.itens(ids, porte).reduce((t, i) => t + i.valor, 0);
+    const itens = () => DB.itens(ids, porte).map((i) => (vals[i.id] != null ? { ...i, valor: vals[i.id] } : i)).concat(extras);
+    const soma = () => itens().reduce((t, i) => t + i.valor, 0);
+    const lista = () => `${Atend.servicosHtml(porte, ids, vals)}${Atend.extrasHtml(extras)}<button type="button" class="serv livre" data-extra>${U.icon('mais')}<span class="serv-nome"><b>Outro serviço</b><small>escrever o nome e o valor</small></span></button>`;
     return U.modal({
       titulo: 'Serviços e valor',
-      html: `<div class="servs">${Atend.servicosHtml(porte, ids)}</div>
+      html: `<div class="servs">${lista()}</div>
         ${podeValor ? `<label class="campo"><span>Valor (sem o desconto)</span><input name="valor" inputmode="decimal" value="${String(a.valor).replace('.', ',')}"></label>` : ''}`,
       aoAbrir: (el) => {
-        el.querySelector('.servs').onclick = (e) => {
-          const b = e.target.closest('[data-serv]'); if (!b) return;
-          const id = b.dataset.serv; ids = ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id];
-          b.classList.toggle('sel');
-          const campo = el.querySelector('[name=valor]'); if (campo) campo.value = String(soma()).replace('.', ',');
+        const caixa = el.querySelector('.servs');
+        const pintar = () => { caixa.innerHTML = lista(); const campo = el.querySelector('[name=valor]'); if (campo) campo.value = String(soma()).replace('.', ','); };
+        caixa.onclick = async (e) => {
+          let b;
+          if ((b = e.target.closest('[data-serv]'))) {
+            const id = b.dataset.serv;
+            if (ids.includes(id)) { ids = ids.filter((x) => x !== id); delete vals[id]; }
+            else {
+              if (!DB.preco(Store.por('servicos', id), porte)) { const val = await Atend.pedirValor(Store.por('servicos', id).nome); if (val == null) return; vals[id] = val; }
+              ids = [...ids, id];
+            }
+            pintar();
+          } else if ((b = e.target.closest('[data-tirar-extra]'))) { extras = extras.filter((x) => x.id !== b.dataset.tirarExtra); pintar(); }
+          else if (e.target.closest('[data-extra]')) { const x = await Atend.pedirServicoLivre(); if (x) { extras = [...extras, x]; pintar(); } }
         };
       },
       acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Salvar', cls: 'btn-marca', aoTocar: (el) => {
-        if (!ids.length) { U.toast('Escolha pelo menos um serviço.', 'bad'); return false; }
+        if (!ids.length && !extras.length) { U.toast('Escolha pelo menos um serviço.', 'bad'); return false; }
         const campo = el.querySelector('[name=valor]');
-        DB.editarAtend(a, { itens: DB.itens(ids, porte), valor: campo ? U.num(campo.value) : soma() });
+        DB.editarAtend(a, { itens: itens(), valor: campo ? U.num(campo.value) : soma() });
         return true;
       } }]
     });

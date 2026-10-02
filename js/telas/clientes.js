@@ -126,7 +126,7 @@
       el.onclick = async (e) => {
         const b = e.target.closest('[data-acao]'); if (!b) return;
         const acao = b.dataset.acao;
-        if (acao === 'zap') return U.zap(c.telefone, `Olá, ${U.primeiroNome(c.nome)}! Aqui é do ${DB.lava().nome}.`);
+        if (acao === 'zap') return U.zap(c.telefone, `Olá, ${U.primeiroNome(c.nome)}! Aqui é ${DB.lava().nome}.`);
         if (acao === 'sumido') return U.zap(c.telefone, DB.msg('sumido', null, c));
         if (acao === 'editar' && await editarCliente(c)) { U.toast('Cliente atualizado'); App.render(); }
         if (acao === 'veiculo' && await editarVeiculo(DB.veiculo(b.dataset.placa))) { U.toast('Veículo atualizado'); App.render(); }

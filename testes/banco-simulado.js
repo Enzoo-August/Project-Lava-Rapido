@@ -20,11 +20,11 @@
         { user_id: 'aaaaaaaa-0000-4000-8000-000000000002', lava_id: LAVA, nome: 'Dona Maria', login: 'maria', perfil: 'dono', ativo: true }
       ],
       servicos: [['Lavagem simples', 40, 30], ['Lavagem completa', 60, 50]].map(([nome, p, minutos], i) => ({ id: 'bbbbbbbb-0000-4000-8000-00000000000' + i, lava_id: LAVA, nome, precos: { moto: p / 2, p, m: p + 10, g: p + 20, x: p + 30 }, minutos, ordem: i + 1, ativo: true, atualizado_em: carimbo() })),
-      clientes: [], veiculos: [], atendimentos: [], despesas: []
+      clientes: [], veiculos: [], atendimentos: [], agendamentos: [], despesas: []
     }
   };
   window.FAKE = F;
-  const PK = { lavas: ['id'], perfis: ['user_id'], servicos: ['id'], clientes: ['id'], veiculos: ['lava_id', 'placa'], atendimentos: ['id'], despesas: ['id'] };
+  const PK = { lavas: ['id'], perfis: ['user_id'], servicos: ['id'], clientes: ['id'], veiculos: ['lava_id', 'placa'], atendimentos: ['id'], agendamentos: ['id'], despesas: ['id'] };
   const copia = (o) => JSON.parse(JSON.stringify(o));
   const falha = () => ({ data: null, error: { message: 'TypeError: Failed to fetch' } });
 

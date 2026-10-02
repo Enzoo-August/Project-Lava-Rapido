@@ -94,11 +94,12 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 /* ---------- estrutura ---------- */
 .app { min-height: 100dvh; }
 .principal { min-width: 0; }
-.topo { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 8px; min-height: calc(60px + var(--sat)); padding: calc(8px + var(--sat)) 12px 8px; background: var(--sup); border-bottom: 1px solid var(--linha); }
+.topo { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 8px; min-height: calc(60px + var(--sat)); padding: calc(8px + var(--sat)) 12px 8px; background: var(--topo-bg, var(--sup)); color: var(--topo-tx, var(--tinta)); border-bottom: 1px solid var(--topo-linha, var(--linha)); }
+.topo .ic-btn { color: inherit; }
 .topo-marca { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
 .topo-marca > div { min-width: 0; display: grid; }
 .topo-marca b { font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.topo-marca small { color: var(--mudo); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.topo-marca small { color: var(--topo-tx2, var(--mudo)); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topo-titulo { font-size: 19px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .topo-acoes { display: flex; align-items: center; gap: 4px; margin-left: auto; flex: none; }
 .voltar { margin-left: -6px; }
@@ -202,12 +203,31 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 .bloco-n { position: absolute; top: 10px; left: 16px; font-size: clamp(46px, 14vw, 64px); font-weight: 800; line-height: 1; }
 .bloco-ic { position: absolute; top: 14px; left: 14px; width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 255, 255, .22); display: grid; place-items: center; }
 .bloco-ic .ic { width: 36px; height: 36px; stroke-width: 2.6; }
-.bloco.chegou { background: var(--marca); color: var(--marca-txt); }
+.bloco.chegou { background: var(--chegou-bg, var(--marca)); color: var(--chegou-tx, var(--marca-txt)); }
+.bloco.chegou .bloco-ic { background: var(--chegou-ic, rgba(255, 255, 255, .22)); color: var(--chegou-ic-tx, currentColor); }
 .bloco.patio { background: #b45309; }
 .bloco.prontos { background: var(--ok); }
 .bloco.entregues { background: #46536a; }
 .bloco-alerta { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 4px; background: #fff; color: var(--perigo); font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 99px; }
 .bloco-alerta .ic { width: 14px; height: 14px; }
+.faixa-agenda { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 14px; background: var(--sup); border-radius: 16px; box-shadow: var(--sombra); }
+.faixa-agenda > .ic:first-child { width: 28px; height: 28px; color: var(--marca-tinta); }
+.faixa-agenda > span { display: grid; min-width: 0; }
+.faixa-agenda small { color: var(--mudo); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.agenda-dia { display: grid; gap: 10px; }
+.agenda-dia h3 { font-size: 16px; display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.agenda-dia h3 .ic { color: var(--perigo); }
+.agend { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 12px; background: var(--sup); border-radius: var(--raio); box-shadow: var(--sombra); border-left: 6px solid var(--marca); }
+.agend.atrasado { border-left-color: var(--perigo); }
+.agend-info { display: flex; align-items: center; gap: 12px; flex: 1 1 210px; min-width: 0; min-height: 52px; }
+.agend-hora { font-size: 21px; font-weight: 800; font-variant-numeric: tabular-nums; flex: none; }
+.agend-txt { display: grid; min-width: 0; }
+.agend-txt small { color: var(--mudo); font-size: 13px; }
+.agend-txt .atraso { color: var(--perigo); }
+.agend-acoes { display: flex; gap: 8px; margin-left: auto; }
+.serv.livre { border-style: dashed; color: var(--marca-tinta); }
+.serv.livre > .ic { width: 28px; height: 28px; }
+.seg.seg-g button { min-height: 40px; padding: 8px 16px; font-size: 14px; }
 .atalho { display: flex; align-items: center; gap: 10px; justify-content: center; min-height: 52px; color: var(--tinta2); font-weight: 600; }
 
 /* ---------- atendimento (cartão do carro) ---------- */

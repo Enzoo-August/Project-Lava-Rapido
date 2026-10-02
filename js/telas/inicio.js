@@ -47,6 +47,14 @@
           <div class="kpi"><span>Valor médio por carro</span><b>${U.brl(r.ticket)}</b><small class="delta">${r.novos ? `${r.novos} cliente${r.novos > 1 ? 's' : ''} novo${r.novos > 1 ? 's' : ''} hoje` : '&nbsp;'}</small></div>
         </div>
 
+        ${(() => {
+          const ag = DB.agendaDoDia(), am = DB.agendaDoDia(U.dia(U.somaDias(new Date(), 1)));
+          if (!ag.length && !am.length) return '';
+          return `<section class="cartao"><div class="cartao-cab"><h3>${U.icon('calendario')} Agenda</h3><a class="link" href="#/agenda">Ver agenda</a></div>
+            ${ag.slice(0, 5).map((g) => `<div class="par"><span>${U.hora(g.quando)} · ${U.esc(g.nome)}</span><b>${U.esc(g.servico || 'a combinar')}</b></div>`).join('') || '<p class="mudo">Nada marcado para hoje.</p>'}
+            ${am.length ? `<p class="mudo pequeno">Amanhã: ${am.length} horário${am.length > 1 ? 's' : ''} marcado${am.length > 1 ? 's' : ''}.</p>` : ''}</section>`;
+        })()}
+
         <section class="cartao">
           <div class="cartao-cab"><h3>No lava-rápido agora</h3>${abertos.length ? '<a class="link" href="#/patio">Ver pátio</a>' : ''}</div>
           ${abertos.length ? `<div class="atends compacto">${abertos.slice().sort((a, b) => (a.status === 'pronto') - (b.status === 'pronto')).slice(0, 8).map(Atend.cartao).join('')}</div>${abertos.length > 8 ? `<a class="link" href="#/patio">e mais ${abertos.length - 8}…</a>` : ''}`

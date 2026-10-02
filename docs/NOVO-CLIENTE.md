@@ -19,6 +19,8 @@ Leva uns 10 minutos. Não precisa mexer em código.
 2. **Novo lava-rápido**: nome, endereço (ex.: `lava-do-joao`), nome e usuário do dono, senha inicial, pago até.
 3. O sistema mostra o link do lava (`…/?l=lava-do-joao`) e o usuário do dono.
 
+Lava já cadastrado sem o login do dono (como a Garagem Z)? Toque no lava na Administração → **Novo acesso (dono ou funcionário)**. Ali também dá para trocar a senha de quem esqueceu.
+
 ## 3. Deixar com a cara dele
 
 Entre com o login do dono (ou faça junto com ele):

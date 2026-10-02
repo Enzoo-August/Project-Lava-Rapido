@@ -28,10 +28,11 @@
     veiculos: ['lava_id', 'placa', 'cliente_id', 'marca', 'modelo', 'cor', 'porte', 'obs', 'ativo'],
     atendimentos: ['id', 'lava_id', 'placa', 'veiculo', 'cliente_id', 'servicos', 'valor', 'desconto', 'pontos_usados', 'premio', 'status', 'pagamento',
       'previsao', 'obs', 'token', 'entrada_em', 'inicio_em', 'pronto_em', 'entregue_em', 'cancelado_em', 'avisado_em', 'atendente_nome', 'lavador'],
+    agendamentos: ['id', 'lava_id', 'cliente_id', 'nome', 'telefone', 'placa', 'veiculo', 'servico', 'valor', 'quando', 'obs', 'status', 'atendimento_id', 'criado_por'],
     despesas: ['id', 'lava_id', 'data', 'categoria', 'descricao', 'valor', 'excluido']
   };
-  const CONFLITO = { servicos: 'id', clientes: 'id', veiculos: 'lava_id,placa', atendimentos: 'id', despesas: 'id' };
-  const TABELAS = ['servicos', 'clientes', 'veiculos', 'atendimentos', 'despesas'];
+  const CONFLITO = { servicos: 'id', clientes: 'id', veiculos: 'lava_id,placa', atendimentos: 'id', agendamentos: 'id', despesas: 'id' };
+  const TABELAS = ['servicos', 'clientes', 'veiculos', 'atendimentos', 'agendamentos', 'despesas'];
 
   const erroTxt = (e) => (e && (e.message || e.error_description || e.details)) || String(e);
   const ok = (r) => { if (r.error) throw r.error; return r.data; };
@@ -57,7 +58,7 @@
       if (!App.user || document.hidden) return;
       volta++;
       if (N.fila.length) N.enviar();
-      N.puxar(volta % 8 === 0 ? null : ['atendimentos']);
+      N.puxar(volta % 8 === 0 ? null : volta % 4 === 0 ? ['atendimentos', 'agendamentos'] : ['atendimentos']);
     }, 8000);
   };
 
@@ -98,6 +99,8 @@
   N.trocarSenha = (id, senha) => rpc('trocar_senha_acesso', { p_user: id, p_senha: senha });
   N.adminLavas = () => rpc('admin_lavas');
   N.adminCriarLava = (o) => rpc('admin_criar_lava', { p_nome: o.nome, p_slug: o.slug, p_dono_nome: o.dono, p_login: o.login, p_senha: o.senha, p_pago_ate: o.pago_ate || null });
+  N.adminCriarAcesso = (lava, o) => rpc('admin_criar_acesso', { p_lava: lava, p_login: o.login, p_senha: o.senha, p_nome: o.nome, p_perfil: o.perfil });
+  N.adminAcessos = async (lava) => ok(await N.sb.from('perfis').select('*').eq('lava_id', lava).order('nome'));
   N.adminEditarLava = (id, o) => rpc('admin_editar_lava', { p_id: id, p_nome: o.nome, p_ativo: o.ativo, p_plano: o.plano, p_pago_ate: o.pago_ate || null });
 
   // ---------------- leitura ----------------
@@ -111,6 +114,7 @@
       let q = N.sb.from(t).select('*').eq('lava_id', lavaId());
       if (desde) q = q.gt('atualizado_em', desde);
       else if (t === 'atendimentos') q = q.or(`status.in.(aguardando,lavando,pronto),entrada_em.gte."${U.somaDias(U.inicioDia(), -2).toISOString()}"`);
+      else if (t === 'agendamentos') q = q.gte('quando', U.somaDias(U.inicioDia(), -7).toISOString());
       else if (t === 'despesas') q = q.gte('data', U.dia(U.somaDias(new Date(), -400)));
       const rows = ok(await q.order('atualizado_em').order(chave).range(i, i + PAG - 1));
       out.push(...rows);
@@ -138,7 +142,7 @@
         // Primeira carga de atendimentos/despesas traz só o recente. O ponto de partida das próximas buscas
         // é a última alteração que existe no banco (e não a do que veio), senão a busca seguinte traria o histórico inteiro.
         let topo = null;
-        if (!N.ultimo[t] && (t === 'atendimentos' || t === 'despesas')) {
+        if (!N.ultimo[t] && (t === 'atendimentos' || t === 'despesas' || t === 'agendamentos')) {
           const u = ok(await N.sb.from(t).select('atualizado_em').eq('lava_id', lavaId()).order('atualizado_em', { ascending: false }).limit(1));
           topo = u.length ? u[0].atualizado_em : null;
         }
@@ -221,7 +225,7 @@
         if (op.t === 'lavas') Store.s.lava = { ...Store.s.lava, ...r.data };
         // do atendimento voltam a ficha do dia e o "cliente novo" conferidos pelo banco;
         // cliente e veículo ficam como estão: seus contadores chegam certos na busca logo depois da fila
-        else if (op.t === 'atendimentos' || op.t === 'servicos' || op.t === 'despesas') Store.mesclar(op.t, r.data);
+        else if (op.t === 'atendimentos' || op.t === 'servicos' || op.t === 'despesas' || op.t === 'agendamentos') Store.mesclar(op.t, r.data);
       }
       N.erro = null;
     } catch (e) {

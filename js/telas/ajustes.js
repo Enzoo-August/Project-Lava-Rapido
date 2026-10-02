@@ -20,7 +20,7 @@
   // ---------------- meu lava-rápido ----------------
   function marca(el) {
     const l = DB.lava(), m = DB.marca();
-    let logo = m.logo, cor = m.cor;
+    let logo = m.logo, cor = m.cor, topo = m.topo || 'claro';
     el.innerHTML = `<form id="f" class="form">
       <label class="campo"><span>Nome do lava-rápido</span><input name="nome" value="${U.esc(l.nome)}" required></label>
       <div class="campo"><span>Logo</span>
@@ -32,6 +32,9 @@
         <div class="cores-marca" id="cores">${CORES.map((c) => `<button type="button" data-cor="${c}" style="background:${c}" class="${c === cor ? 'sel' : ''}" aria-label="Cor ${c}"></button>`).join('')}
           <label class="cor-livre" title="Outra cor"><input type="color" id="corLivre" value="${U.esc(cor)}">${U.icon('editar')}</label></div>
       </div>
+      <div class="campo"><span>Barra do alto</span>
+        <div class="seg seg-g" id="topoSel">${[['claro', 'Clara'], ['escuro', 'Preta'], ['marca', 'Na cor']].map(([id, t]) => `<button type="button" data-topo="${id}" class="${topo === id ? 'ativo' : ''}">${t}</button>`).join('')}</div>
+        <small class="mudo">Preta combina com logos escuras (ex.: verde e preto).</small></div>
       <label class="campo"><span>WhatsApp do lava-rápido (com DDD)</span><input name="telefone" inputmode="tel" value="${U.esc(U.telFmt(m.telefone))}" placeholder="(11) 99999-9999"></label>
       <label class="campo"><span>Endereço</span><input name="endereco" value="${U.esc(m.endereco)}" placeholder="Rua, número, bairro"></label>
       <label class="campo"><span>Link de avaliação do Google</span><input name="google" value="${U.esc(m.google)}" placeholder="https://g.page/r/…/review" inputmode="url" autocapitalize="none"></label>
@@ -42,7 +45,8 @@
     const pintarLogo = () => { el.querySelector('#logoVer').innerHTML = App.logoHtml({ logo }, l.nome, 'grande'); };
     el.querySelector('#logoArq').onchange = async (e) => { const a = e.target.files[0]; if (!a) return; try { logo = await U.imagemPequena(a); pintarLogo(); } catch (x) { U.toast(x.message, 'bad'); } };
     const tirar = el.querySelector('#logoTirar'); if (tirar) tirar.onclick = () => { logo = ''; pintarLogo(); };
-    const escolherCor = (c) => { cor = c; el.querySelectorAll('#cores [data-cor]').forEach((b) => b.classList.toggle('sel', b.dataset.cor === c)); App.aplicarMarca({ ...m, cor }, l.nome); };
+    const escolherCor = (c) => { cor = c; el.querySelectorAll('#cores [data-cor]').forEach((b) => b.classList.toggle('sel', b.dataset.cor === c)); App.aplicarMarca({ ...m, cor, topo }, l.nome); };
+    el.querySelector('#topoSel').onclick = (e) => { const b = e.target.closest('[data-topo]'); if (!b) return; topo = b.dataset.topo; el.querySelectorAll('#topoSel button').forEach((x) => x.classList.toggle('ativo', x === b)); App.aplicarMarca({ ...m, cor, topo }, l.nome); };
     el.querySelector('#cores').onclick = (e) => { const b = e.target.closest('[data-cor]'); if (b) escolherCor(b.dataset.cor); };
     el.querySelector('#corLivre').oninput = (e) => escolherCor(e.target.value);
     const tel = el.querySelector('[name=telefone]'); tel.oninput = () => { tel.value = U.telFmt(tel.value); };
@@ -51,7 +55,7 @@
       const f = U.campos(e.target);
       if (f.telefone && !U.telOk(f.telefone)) return U.toast('Confira o telefone: DDD + número.', 'bad');
       if (f.google && !/^https?:\/\//i.test(f.google)) f.google = 'https://' + f.google;
-      DB.salvarLava({ nome: f.nome, marca: { ...(l.marca || {}), logo, cor, telefone: U.telDig(f.telefone), endereco: f.endereco, google: f.google, instagram: f.instagram } });
+      DB.salvarLava({ nome: f.nome, marca: { ...(l.marca || {}), logo, cor, topo, telefone: U.telDig(f.telefone), endereco: f.endereco, google: f.google, instagram: f.instagram } });
       salvo();
     };
     App.aoSairDaTela = () => App.aplicarMarca();
@@ -133,7 +137,8 @@
     ['entrada', 'Quando o carro chega', '{nome} {carro} {placa} {previsao} {link} {lava}'],
     ['pronto', 'Quando o carro fica pronto', '{nome} {carro} {placa} {valor} {lava}'],
     ['avaliacao', 'Pedido de avaliação (cliente novo)', '{nome} {google} {lava}'],
-    ['sumido', 'Para chamar de volta o cliente sumido', '{nome} {carro} {lava}']
+    ['sumido', 'Para chamar de volta o cliente sumido', '{nome} {carro} {lava}'],
+    ['lembrete', 'Lembrete de horário marcado (agenda)', '{nome} {quando} {carro} {lava}']
   ];
   function mensagens(el) {
     const m = DB.cfg().msg;

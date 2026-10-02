@@ -25,7 +25,19 @@
     st.setProperty('--marca-clara', U.misturar(cor, '#ffffff', 0.9));
     // cor da marca para textos e traços sobre fundo claro (escurece cores muito claras, como amarelo)
     st.setProperty('--marca-tinta', U.luminancia(cor) > 0.28 ? U.misturar(cor, '#000000', 0.45) : cor);
-    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.content = cor;
+    // topo do aplicativo: claro (padrão), escuro ou na cor da marca
+    const topo = m.topo === 'escuro' ? '#10151c' : m.topo === 'marca' ? cor : '';
+    const topoTx = topo ? U.textoSobre(topo) : '#10151c';
+    st.setProperty('--topo-bg', topo || '#ffffff');
+    st.setProperty('--topo-tx', topoTx);
+    st.setProperty('--topo-tx2', !topo ? '#5f6975' : topoTx === '#ffffff' ? 'rgba(255,255,255,.72)' : 'rgba(16,21,28,.68)');
+    st.setProperty('--topo-linha', topo ? 'transparent' : '#dde2e8');
+    // botão "Chegou carro": com topo escuro fica preto com o círculo na cor da marca
+    st.setProperty('--chegou-bg', m.topo === 'escuro' ? '#10151c' : cor);
+    st.setProperty('--chegou-tx', m.topo === 'escuro' ? '#ffffff' : U.textoSobre(cor));
+    st.setProperty('--chegou-ic', m.topo === 'escuro' ? cor : 'rgba(255,255,255,.22)');
+    st.setProperty('--chegou-ic-tx', m.topo === 'escuro' ? U.textoSobre(cor) : 'currentColor');
+    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.content = topo || cor;
     document.title = nome;
     const at = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (at) at.content = nome;
     if (Store.s && Store.s.lava.id && !DEMO) { try { localStorage.setItem('lr.marca', JSON.stringify({ ...m, nome, slug: Store.s.lava.slug })); } catch (e) {} }
@@ -144,6 +156,7 @@
     { r: 'inicio', txt: 'Início', ic: 'casa', perfis: ['dono'] },
     { r: 'balcao', txt: 'Balcão', ic: 'carro', perfis: ['dono'], so: 'lateral' },
     { r: 'patio', txt: 'Pátio', ic: 'lista', perfis: ['dono'] },
+    { r: 'agenda', txt: 'Agenda', ic: 'calendario', perfis: ['dono'], mais: true },
     { r: 'clientes', txt: 'Clientes', ic: 'pessoas', perfis: ['dono'], mais: true },
     { r: 'resultados', txt: 'Resultados', ic: 'grafico', perfis: ['dono'] },
     { r: 'financeiro', txt: 'Financeiro', ic: 'carteira', perfis: ['dono'], mais: true },
@@ -254,7 +267,7 @@
     U.modal({
       titulo: u.nome,
       html: `<div class="lista-menu">
-        ${u.perfil === 'funcionario' ? `<a href="#/clientes" data-fechar>${U.icon('pessoas')}<span>Clientes</span></a><a href="#/ajuda" data-fechar>${U.icon('ajuda')}<span>Como usar</span></a><a href="#/ajuda/instalar" data-fechar>${U.icon('celular')}<span>Instalar no celular</span></a>` : ''}
+        ${u.perfil === 'funcionario' ? `<a href="#/agenda" data-fechar>${U.icon('calendario')}<span>Agenda</span></a><a href="#/clientes" data-fechar>${U.icon('pessoas')}<span>Clientes</span></a><a href="#/ajuda" data-fechar>${U.icon('ajuda')}<span>Como usar</span></a><a href="#/ajuda/instalar" data-fechar>${U.icon('celular')}<span>Instalar no celular</span></a>` : ''}
         <button type="button" id="mSair">${U.icon('sair')}<span>Sair deste aparelho</span></button>
       </div>`,
       aoAbrir: (el, fechar) => { el.querySelector('#mSair').onclick = () => { fechar(); App.sair(); }; }

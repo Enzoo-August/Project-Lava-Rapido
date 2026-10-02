@@ -20,10 +20,11 @@
     sumidoDias: 45,             // depois de quantos dias sem vir o cliente é "sumido"
     funcionarioMudaValor: true,
     msg: {
-      entrada: 'Olá, {nome}! Recebemos seu {carro} ({placa}) aqui no {lava}. Previsão: {previsao}. Acompanhe por aqui: {link}',
-      pronto: 'Olá, {nome}! Seu {carro} ({placa}) está pronto ✅ Pode vir buscar quando quiser. Total: {valor}. {lava}',
-      avaliacao: '{nome}, obrigado por escolher o {lava}! Sua opinião ajuda muito a gente. Pode avaliar em 1 minutinho? {google}',
-      sumido: 'Oi, {nome}! Faz um tempo que não vemos seu {carro} por aqui. Que tal deixar ele brilhando de novo? Esperamos você no {lava}!'
+      entrada: 'Olá, {nome}! Recebemos seu {carro} ({placa}). Previsão: {previsao}. Acompanhe por aqui: {link}\n{lava}',
+      pronto: 'Olá, {nome}! Seu {carro} ({placa}) está pronto ✅ Pode vir buscar quando quiser. Total: {valor}.\n{lava}',
+      avaliacao: '{nome}, obrigado pela preferência! Sua opinião ajuda muito a gente. Pode avaliar em 1 minutinho? {google}\n{lava}',
+      sumido: 'Oi, {nome}! Faz um tempo que não vemos seu {carro} por aqui. Que tal deixar ele brilhando de novo? Estamos esperando você!\n{lava}',
+      lembrete: 'Olá, {nome}! Passando para lembrar do seu horário: {quando}. Se precisar remarcar, é só avisar por aqui.\n{lava}'
     }
   };
   DB.PADRAO = PADRAO;
@@ -151,7 +152,7 @@
       servicos: o.itens, valor, desconto, total: Math.max(0, valor - desconto),
       pontos_usados: o.nivel ? o.nivel.pontos : 0, premio: o.nivel ? DB.premioTxt(o.nivel) : null,
       status: 'aguardando', pagamento: null,
-      previsao: o.previsaoMin ? new Date(Date.now() + o.previsaoMin * 60000).toISOString() : null,
+      previsao: o.previsao || (o.previsaoMin ? new Date(Date.now() + o.previsaoMin * 60000).toISOString() : null),
       obs: o.obs || '', cliente_novo: (c.visitas || 0) === 0, token: U.token(),
       entrada_em: agora, inicio_em: null, pronto_em: null, entregue_em: null, cancelado_em: null, avisado_em: null,
       atendente: Store.modo === 'nuvem' ? App.user.id : null, atendente_nome: App.user.nome, lavador: null
@@ -210,6 +211,19 @@
     return DB.gravar('servicos', s);
   };
 
+  // ---------------- agenda (horários marcados) ----------------
+  DB.agenda = () => Store.s.agendamentos.filter((g) => g.status === 'marcado').sort((a, b) => (a.quando < b.quando ? -1 : 1));
+  DB.agendaDoDia = (dia) => { dia = dia || U.dia(); return DB.agenda().filter((g) => U.dia(g.quando) === dia); };
+  DB.salvarAgendamento = (g, dados) => {
+    if (!g) g = { id: U.uuid(), lava_id: lavaId(), cliente_id: null, nome: '', telefone: '', placa: '', veiculo: '', servico: '', valor: 0, quando: null, obs: '', status: 'marcado', atendimento_id: null, criado_por: App.user.nome, criado_em: agoraIso() };
+    Object.assign(g, dados);
+    if (dados.nome !== undefined) g.nome = U.capitalizar(g.nome);
+    if (dados.telefone !== undefined) g.telefone = U.telDig(g.telefone);
+    return DB.gravar('agendamentos', g);
+  };
+  DB.quandoTxt = (d) => { const dias = U.diasDesde(d); return (dias === 0 ? 'hoje' : dias === -1 ? 'amanhã' : `${U.SEMANA_LONGA[new Date(d).getDay()]}, ${U.dataCurta(d)}`) + ' às ' + U.hora(d); };
+  DB.msgAgenda = (g) => String(DB.cfg().msg.lembrete || '').replace(/\{(\w+)\}/g, (m, k) => ({ nome: U.primeiroNome(g.nome), lava: DB.lava().nome, quando: DB.quandoTxt(g.quando), carro: g.veiculo || 'carro' }[k] ?? m));
+
   // ---------------- períodos (painel do dono) ----------------
   // atendimentos com entrada entre "de" (inclusive) e "ate" (exclusive)
   DB.periodo = async (de, ate) => {
@@ -237,6 +251,6 @@
       previsao: a && a.previsao ? (U.dia(a.previsao) === U.dia() ? 'hoje às ' : U.dataCurta(a.previsao) + ' às ') + U.hora(a.previsao) : 'avisamos quando ficar pronto',
       link: a ? DB.linkAcompanhar(a) : ''
     };
-    return String(DB.cfg().msg[tipo] || '').replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m)).replace(/ \(\)/g, '').trim();
+    return String(DB.cfg().msg[tipo] || '').replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m)).replace(/ \(\)/g, '').replace(/^\s+$/gm, '').trim();
   };
 })();

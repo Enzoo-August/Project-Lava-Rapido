@@ -50,7 +50,14 @@ window.testeFuncionario = async () => {
   await esp(1500);
   ok('recusa do banco não trava a fila', Nuvem.fila.length === 0 && Nuvem.falhas.length === 1 && FAKE.t.atendimentos.find((x) => x.id === b.id).status === 'pronto');
   FAKE.recusar = null;
-  // 6. entrega
+  // 6. agenda
+  const g = DB.salvarAgendamento(null, { nome: 'cliente agenda', telefone: '11955554444', quando: new Date(Date.now() + 864e5).toISOString(), servico: 'Polimento', valor: 300 });
+  await esp(1500);
+  ok('horário marcado chega ao banco', FAKE.t.agendamentos.length === 1 && FAKE.t.agendamentos[0].nome === 'Cliente Agenda' && FAKE.t.agendamentos[0].valor === 300);
+  const fg = FAKE.t.agendamentos[0]; fg.status = 'cancelado'; fg.atualizado_em = carimbo(8000);
+  await Nuvem.puxar(['agendamentos']);
+  ok('horário cancelado em outro aparelho some da agenda', g.status === 'cancelado' && !DB.agenda().length);
+  // 7. entrega
   DB.status(a, 'entregue', { pagamento: 'Pix' }); await esp(1500);
   ok('entrega: gasto conferido pelo banco', DB.cliente(a.cliente_id).gasto === 40 && FAKE.t.atendimentos[0].pagamento === 'Pix');
   location.hash = '#/resultados'; await esp(300);

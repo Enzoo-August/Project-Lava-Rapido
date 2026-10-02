@@ -15,11 +15,11 @@
   window.Telas = {};   // cada arquivo de js/telas/ se registra aqui
 
   // coluna que identifica cada linha
-  S.CHAVE = { servicos: 'id', clientes: 'id', veiculos: 'placa', atendimentos: 'id', despesas: 'id', equipe: 'user_id' };
+  S.CHAVE = { servicos: 'id', clientes: 'id', veiculos: 'placa', atendimentos: 'id', agendamentos: 'id', despesas: 'id', equipe: 'user_id' };
 
   S.vazio = () => ({
     lava: { id: '', slug: '', nome: 'Lava Rápido', marca: {}, config: {}, ativo: true, plano: 'mensal', pago_ate: null },
-    servicos: [], clientes: [], veiculos: [], atendimentos: [], despesas: [], equipe: []
+    servicos: [], clientes: [], veiculos: [], atendimentos: [], agendamentos: [], despesas: [], equipe: []
   });
 
   S.usar = (estado) => { S.s = { ...S.vazio(), ...estado }; S.reindex(); S.rev++; };

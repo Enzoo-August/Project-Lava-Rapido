@@ -14,9 +14,9 @@ window.aud = async (perfil, placa) => {
   U.zap = () => {};
   const cid = Store.s.clientes.find((c) => c.visitas > 12).id;
   const rotas = perfil === 'dono'
-    ? ['inicio', 'balcao', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'resultados', 'financeiro', 'ajustes', 'ajustes/marca', 'ajustes/servicos',
+    ? ['inicio', 'agenda', 'balcao', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'resultados', 'financeiro', 'ajustes', 'ajustes/marca', 'ajustes/servicos',
       'ajustes/fidelidade', 'ajustes/mensagens', 'ajustes/equipe', 'ajustes/opcoes', 'ajustes/conta', 'ajuda', 'mais', 'entrada']
-    : ['balcao', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'ajuda', 'entrada'];
+    : ['balcao', 'agenda', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'ajuda', 'entrada'];
   const prob = [];
 
   const medir = (nome) => {
@@ -54,6 +54,11 @@ window.aud = async (perfil, placa) => {
   if (await clic('[data-acao=porte]')) { medir('entrada/janela tamanho'); await clic('.modal [data-fechar]'); }
   if (await clic('[data-acao=valor]')) { medir('entrada/janela valor'); await clic('.modal [data-fechar]'); }
   await clic('[data-acao=confirmar]'); medir('entrada/feito');
+
+  // agenda: marcar horário e ver um horário
+  location.hash = '#/agenda'; await esp(300);
+  if (await clic('#gNovo')) { medir('agenda/janela marcar'); await clic('.modal [data-fechar]'); await esp(200); }
+  if (await clic('.agend [data-acao=ver]')) { medir('agenda/janela horário'); await clic('.modal [data-fechar]'); await esp(200); }
 
   // janelas do pátio
   location.hash = '#/patio'; await esp(300);

@@ -27,13 +27,46 @@
     acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Criar', cls: 'btn-marca', aoTocar: async (el) => { const f = U.campos(el); await Nuvem.adminCriarLava(f); return f; } }]
   });
 
+  // acessos (logins) de um lava: criar dono/funcionário e trocar senha
+  const formAcesso = (l) => U.modal({
+    titulo: 'Novo acesso · ' + l.nome,
+    html: `<label class="campo"><span>Nome da pessoa</span><input name="nome" autocapitalize="words"></label>
+      <div class="lado"><label class="campo"><span>Usuário</span><input name="login" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="ex.: flavio"></label>
+        <label class="campo"><span>Senha inicial (6 ou mais)</span><input name="senha" type="text" autocapitalize="none" autocomplete="off"></label></div>
+      <label class="campo"><span>Perfil</span><select name="perfil"><option value="dono">Dono (vê tudo)</option><option value="funcionario">Funcionário (só o balcão)</option></select></label>`,
+    acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Criar', cls: 'btn-marca', aoTocar: async (el) => { const f = U.campos(el); await Nuvem.adminCriarAcesso(l.id, f); return f; } }]
+  });
+  const formSenha = (p) => U.modal({
+    titulo: 'Nova senha · ' + p.nome,
+    html: `<p class="mudo">Usuário: <b>${U.esc(p.login)}</b></p><label class="campo"><span>Nova senha (6 ou mais)</span><input name="senha" type="text" autocapitalize="none" autocomplete="off"></label>`,
+    acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Trocar', cls: 'btn-marca', aoTocar: async (el) => { await Nuvem.trocarSenha(p.user_id, U.campos(el).senha); return true; } }]
+  });
+  const pintarAcessos = async (el, l) => {
+    const caixa = el.querySelector('#aAcessos');
+    try {
+      const lista = await Nuvem.adminAcessos(l.id);
+      caixa.innerHTML = lista.map((p) => `<div class="linha${p.ativo ? '' : ' apagado'}"><span class="linha-txt"><b>${U.esc(p.nome)}</b><small>usuário: ${U.esc(p.login)} · ${p.perfil === 'dono' ? 'Dono' : 'Funcionário'}${p.ativo ? '' : ' · bloqueado'}</small></span>
+        <button type="button" class="btn btn-p" data-senha="${p.user_id}">${U.icon('chave')}<span>Senha</span></button></div>`).join('') || '<p class="mudo">Nenhum acesso ainda. Crie o do dono.</p>';
+      caixa.onclick = async (e) => { const b = e.target.closest('[data-senha]'); if (!b) return; if (await formSenha(lista.find((p) => p.user_id === b.dataset.senha))) U.toast('Senha trocada'); };
+    } catch (e) { caixa.innerHTML = `<p class="erro">${U.esc(e.message || e)}</p>`; }
+  };
+
   const formEditar = (l) => U.modal({
-    titulo: l.nome,
+    titulo: l.nome, largo: true,
     html: `<label class="campo"><span>Nome</span><input name="nome" value="${U.esc(l.nome)}"></label>
       <div class="lado"><label class="campo"><span>Plano</span><select name="plano">${['mensal', 'anual', 'vitalicio', 'teste'].map((p) => `<option${p === l.plano ? ' selected' : ''}>${p}</option>`).join('')}</select></label>
         <label class="campo"><span>Pago até</span><input name="pago_ate" type="date" value="${l.pago_ate || ''}"></label></div>
       <label class="chave"><input type="checkbox" name="ativo" ${l.ativo ? 'checked' : ''}><span>Assinatura ativa<small>Desligado, o lava só consulta: não registra carros até regularizar.</small></span></label>
-      <p class="mudo pequeno">Link: ${U.esc(enderecoDe(l.slug))}</p>`,
+      <p class="mudo pequeno">Link: ${U.esc(enderecoDe(l.slug))}</p>
+      <button type="button" class="btn btn-bloco" id="aCopiar">${U.icon('lista')}<span>Copiar o link</span></button>
+      <p class="rotulo">Acessos deste lava-rápido</p>
+      <div class="lista" id="aAcessos"><p class="mudo">Carregando…</p></div>
+      <button type="button" class="btn btn-bloco" id="aNovoAcesso">${U.icon('mais')}<span>Novo acesso (dono ou funcionário)</span></button>`,
+    aoAbrir: (el) => {
+      pintarAcessos(el, l);
+      el.querySelector('#aNovoAcesso').onclick = async () => { const f = await formAcesso(l); if (f) { U.toast(`Acesso criado: ${f.login.toLowerCase()}`); pintarAcessos(el, l); } };
+      el.querySelector('#aCopiar').onclick = async () => { try { await navigator.clipboard.writeText(enderecoDe(l.slug)); U.toast('Link copiado'); } catch (e) { U.toast(enderecoDe(l.slug)); } };
+    },
     acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Salvar', cls: 'btn-marca', aoTocar: async (el) => { await Nuvem.adminEditarLava(l.id, U.campos(el)); return true; } }]
   });
 

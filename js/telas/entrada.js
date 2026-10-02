@@ -7,7 +7,7 @@
   let E = null;          // o que já foi respondido
   let tela = null;       // elemento da tela
 
-  const novo = () => ({ passo: 'placa', placa: '', veic: null, existente: false, cli: null, cliNovo: { nome: '', telefone: '' }, ids: [], valor: null, nivel: null, previsao: null, obs: '', busca: '', porteLivre: null, feito: null });
+  const novo = () => ({ passo: 'placa', placa: '', veic: null, existente: false, cli: null, cliNovo: { nome: '', telefone: '' }, ids: [], extras: [], vals: {}, valor: null, nivel: null, previsao: null, previsaoEm: null, obs: '', busca: '', porteLivre: null, feito: null, ag: null });
   const TECLAS = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
   const OBS_RAPIDAS = ['Já tem risco ou amassado', 'Objetos de valor no carro', 'Cliente espera no local', 'Chave fica no lava-rápido'];
   const PREVISOES = [[30, '30 min'], [60, '1 hora'], [90, '1h30'], [120, '2 horas'], [180, '3 horas'], [300, '5 horas']];
@@ -71,7 +71,10 @@
     if (!E.cli) { E.existente = false; return ir('cliente'); }
     const ativos = DB.servicos().map((s) => s.id);
     E.ids = (v.ultimos_servicos || []).map((s) => s.id).filter((id) => ativos.includes(id));
-    if (!E.ids.length && ativos.length) E.ids = [ativos[0]];
+    // serviço "a combinar" da última vez: já vem com o valor que o cliente pagou
+    (v.ultimos_servicos || []).forEach((s) => { if (E.ids.includes(s.id) && !DB.preco(Store.por('servicos', s.id), v.porte) && s.valor > 0) E.vals[s.id] = s.valor; });
+    if (E.ag) servicoDoAgendamento();
+    if (!E.ids.length && !E.extras.length) { const s = DB.servicos().find((x) => DB.preco(x, v.porte) > 0); if (s) E.ids = [s.id]; }
     ir('servico');
   };
 
@@ -152,16 +155,32 @@
       prepararServico(); ir('servico');
     };
   }
-  const prepararServico = () => { if (!E.ids.length) { const s = DB.servicos()[0]; if (s) E.ids = [s.id]; } };
+  const prepararServico = () => {
+    if (E.ag) servicoDoAgendamento();
+    // já deixa marcado o primeiro serviço que tem preço (o "a combinar" precisa perguntar o valor)
+    if (!E.ids.length && !E.extras.length) { const s = DB.servicos().find((x) => DB.preco(x, E.veic.porte) > 0); if (s) E.ids = [s.id]; }
+  };
+  // veio da agenda: já entra com o serviço (e o valor) combinado
+  const servicoDoAgendamento = () => {
+    const ag = E.ag; if (!ag.servico || E.agUsado) return;
+    E.agUsado = true; E.ids = []; E.extras = [];
+    const s = DB.servicos().find((x) => x.nome === ag.servico);
+    if (s) { E.ids = [s.id]; if (Number(ag.valor) > 0) E.vals[s.id] = Number(ag.valor); }
+    else E.extras = [{ id: 'livre-' + U.uuid().slice(0, 8), nome: ag.servico, valor: Number(ag.valor) || 0 }];
+    if (ag.obs) E.obs = ag.obs;
+  };
 
   // ---------------- 5. serviço ----------------
   const totais = () => {
-    const itens = DB.itens(E.ids, E.veic.porte);
+    const itens = DB.itens(E.ids, E.veic.porte).map((i) => (E.vals[i.id] != null ? { ...i, valor: E.vals[i.id] } : i)).concat(E.extras);
     const soma = itens.reduce((t, i) => t + i.valor, 0);
     const valor = E.valor != null ? E.valor : soma;
     const desconto = E.nivel ? Math.round(valor * E.nivel.desconto) / 100 : 0;
     return { itens, soma, valor, desconto, total: Math.max(0, valor - desconto), minutos: DB.minutos(E.ids) };
   };
+  const amanha18 = () => { const d = U.somaDias(U.inicioDia(), 1); d.setHours(18, 0, 0, 0); return d.toISOString(); };
+  const quandoFica = () => (E.previsaoEm ? new Date(E.previsaoEm) : new Date(Date.now() + E.previsao * 60000));
+  const quandoTxt = (d) => (U.dia(d) === U.dia() ? 'às ' + U.hora(d) : `${U.SEMANA[new Date(d).getDay()].toLowerCase()} ${U.dataCurta(d)} às ${U.hora(d)}`);
   const previsaoPadrao = (min) => (PREVISOES.find((p) => p[0] >= min + 10 + DB.abertos().filter((a) => a.status !== 'pronto').length * 10) || PREVISOES[PREVISOES.length - 1])[0];
 
   function fidelidadeHtml() {
@@ -186,8 +205,9 @@
   }
 
   function passoServico() {
-    if (E.previsao == null) E.previsao = previsaoPadrao(DB.minutos(E.ids));
-    const t = totais(), c = E.cli;
+    // serviço demorado (polimento, vitrificação…) já sugere entregar no dia seguinte
+    if (E.previsao == null && !E.previsaoEm) { if (DB.minutos(E.ids) > 300) E.previsaoEm = amanha18(); else E.previsao = previsaoPadrao(DB.minutos(E.ids)); }
+    const t = totais(), c = E.cli, temServico = E.ids.length + E.extras.length > 0;
     const podeValor = DB.ehDono() || DB.cfg().funcionarioMudaValor;
     tela.innerHTML = `<div class="passo passo-servico">
       ${cab('Qual serviço?')}
@@ -196,31 +216,34 @@
         <button type="button" class="link" data-acao="porte">${CAT.porteNome(E.veic.porte)} ${U.icon('editar')}</button>
       </div>
       ${fidelidadeHtml()}
-      <div class="servs">${Atend.servicosHtml(E.veic.porte, E.ids) || '<p class="mudo centro">Nenhum serviço cadastrado. O dono cadastra em Ajustes → Serviços e preços.</p>'}</div>
-      <p class="rotulo">Fica pronto em quanto tempo?</p>
-      <div class="chips previsoes">${PREVISOES.map(([m, txt]) => `<button type="button" class="chip${E.previsao === m ? ' ativo' : ''}" data-prev="${m}">${txt}</button>`).join('')}</div>
+      <div class="servs">${Atend.servicosHtml(E.veic.porte, E.ids, E.vals)}${Atend.extrasHtml(E.extras)}
+        <button type="button" class="serv livre" data-acao="extra">${U.icon('mais')}<span class="serv-nome"><b>Outro serviço</b><small>escrever o nome e o valor</small></span></button></div>
+      <p class="rotulo">Fica pronto quando?</p>
+      <div class="chips previsoes">${PREVISOES.map(([m, txt]) => `<button type="button" class="chip${!E.previsaoEm && E.previsao === m ? ' ativo' : ''}" data-prev="${m}">${txt}</button>`).join('')}
+        <button type="button" class="chip${E.previsaoEm ? ' ativo' : ''}" data-acao="outrodia">${E.previsaoEm ? U.capitalizar(quandoTxt(E.previsaoEm)) : 'Outro dia'}</button></div>
       <p class="rotulo">Observação <span class="mudo">(se precisar)</span></p>
       <div class="chips">${OBS_RAPIDAS.map((o) => `<button type="button" class="chip${E.obs.includes(o) ? ' ativo' : ''}" data-obs="${U.esc(o)}">${o}</button>`).join('')}</div>
       <div class="pe-fixo">
         <div class="pe-total">
           <span>${t.desconto ? `<s>${U.brl(t.valor)}</s> ` : ''}<b>${U.brl(t.total)}</b>${t.desconto ? ` <em>−${E.nivel.desconto}%</em>` : ''}</span>
-          <small>pronto às ${U.hora(Date.now() + E.previsao * 60000)}</small>
+          <small>pronto ${quandoTxt(quandoFica())}</small>
           ${podeValor ? '<button type="button" class="link" data-acao="valor">ajustar valor</button>' : ''}
         </div>
-        <button class="btn btn-ok btn-g" type="button" data-acao="confirmar" ${E.ids.length ? '' : 'disabled'}>${U.icon('check')}<span>Confirmar</span></button>
+        <button class="btn btn-ok btn-g" type="button" data-acao="confirmar" ${temServico ? '' : 'disabled'}>${U.icon('check')}<span>Confirmar</span></button>
       </div>
     </div>`;
   }
 
   const confirmar = () => {
-    if (!E.ids.length) return;
+    if (!E.ids.length && !E.extras.length) return;
     const t = totais();
     const a = DB.entrada({
       placa: E.placa, veiculo: E.veic,
       cliente: E.cli ? { id: E.cli.id } : E.cliNovo,
       itens: t.itens, valor: E.valor != null ? E.valor : null, nivel: E.nivel,
-      previsaoMin: E.previsao, obs: E.obs
+      previsaoMin: E.previsao, previsao: E.previsaoEm, obs: E.obs
     });
+    if (E.ag) DB.salvarAgendamento(E.ag, { status: 'chegou', atendimento_id: a.id, cliente_id: a.cliente_id, placa: a.placa });
     E.feito = a; E.cli = DB.cliente(a.cliente_id);
     ir('feito');
   };
@@ -234,7 +257,7 @@
       <h2 class="pergunta">Entrada registrada!</h2>
       <div class="feito-ficha"><small>Ficha</small><b>${a.numero}</b></div>
       <div class="resumo-carro grande centro">${U.placaHtml(a.placa)}<div><b>${U.esc(a.veiculo)}</b><small>${U.esc(c.nome)}</small></div></div>
-      <p class="centro">${U.esc(a.servicos.map((s) => s.nome).join(' + '))} · <b>${U.brl(a.total)}</b><br>Previsão: <b>${U.hora(a.previsao)}</b></p>
+      <p class="centro">${U.esc(a.servicos.map((s) => s.nome).join(' + '))} · <b>${U.brl(a.total)}</b><br>Previsão: <b>${quandoTxt(a.previsao)}</b></p>
       ${fid ? `<p class="fidel-linha">${U.icon('presente')}<span>${fid}</span></p>` : ''}
       <p class="fala">Pode dizer: “Pronto, ${U.esc(U.primeiroNome(c.nome))}! Aviso no WhatsApp quando terminar.”</p>
       <div class="pilha">
@@ -265,10 +288,17 @@
     if ((b = alvo('[data-cor]'))) { E.veic.cor = b.dataset.cor; if (E.cli) prepararServico(); return ir(E.cli ? 'servico' : 'cliente'); }
     if ((b = alvo('[data-usar]'))) { E.cli = DB.cliente(b.dataset.usar); prepararServico(); return ir('servico'); }
     if ((b = alvo('[data-serv]'))) {
-      const id = b.dataset.serv; E.ids = E.ids.includes(id) ? E.ids.filter((x) => x !== id) : [...E.ids, id];
-      E.valor = null; E.previsao = null; return desenhar();
+      const id = b.dataset.serv, s = Store.por('servicos', id);
+      if (E.ids.includes(id)) { E.ids = E.ids.filter((x) => x !== id); delete E.vals[id]; }
+      else {
+        // serviço "a combinar": pergunta o valor na hora
+        if (!DB.preco(s, E.veic.porte)) { const v = await Atend.pedirValor(s.nome); if (v == null) return; E.vals[id] = v; }
+        E.ids = [...E.ids, id];
+      }
+      E.valor = null; E.previsao = null; E.previsaoEm = null; return desenhar();
     }
-    if ((b = alvo('[data-prev]'))) { E.previsao = Number(b.dataset.prev); return desenhar(); }
+    if ((b = alvo('[data-tirar-extra]'))) { E.extras = E.extras.filter((x) => x.id !== b.dataset.tirarExtra); E.valor = null; return desenhar(); }
+    if ((b = alvo('[data-prev]'))) { E.previsao = Number(b.dataset.prev); E.previsaoEm = null; return desenhar(); }
     if ((b = alvo('[data-obs]'))) { const o = b.dataset.obs, l = E.obs ? E.obs.split(' · ') : []; E.obs = (l.includes(o) ? l.filter((x) => x !== o) : [...l, o]).join(' · '); return desenhar(); }
     if ((b = alvo('[data-nivel]'))) { const n = Number(b.dataset.nivel); E.nivel = n ? DB.fidelidade(E.cli, 1).alcancados.find((x) => x.pontos === n) || null : null; return desenhar(); }
     if (!(b = alvo('[data-acao]')) || b.disabled) return;
@@ -278,6 +308,17 @@
     if (acao === 'pelonome') return ir('nome');
     if (acao === 'confirmar') { b.disabled = true; return confirmar(); }
     if (acao === 'outro') { E = novo(); return ir('placa'); }
+    if (acao === 'extra') { const x = await Atend.pedirServicoLivre(); if (x) { E.extras = [...E.extras, x]; E.valor = null; desenhar(); } return; }
+    if (acao === 'outrodia') {
+      const d = new Date(E.previsaoEm || amanha18());
+      const r = await U.modal({
+        titulo: 'Fica pronto quando?',
+        html: `<div class="lado"><label class="campo"><span>Dia</span><input name="dia" type="date" value="${U.dia(d)}" min="${U.dia()}"></label><label class="campo"><span>Hora</span><input name="hora" type="time" value="${U.hora(d)}"></label></div>`,
+        acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Salvar', cls: 'btn-marca', aoTocar: (el) => { const f = U.campos(el); if (!f.dia || !f.hora) { U.toast('Informe o dia e a hora.', 'bad'); return false; } const q = U.deDia(f.dia); q.setHours(Number(f.hora.slice(0, 2)), Number(f.hora.slice(3, 5)), 0, 0); return q.toISOString(); } }]
+      });
+      if (r) { E.previsaoEm = r; desenhar(); }
+      return;
+    }
     if (acao === 'comprovante') return U.zap(E.cli.telefone, DB.msg('entrada', E.feito, E.cli));
     if (acao === 'porte') {
       const p = await U.modal({ titulo: 'Tamanho do veículo', empilhar: true, html: '<p class="mudo">O preço da lavagem muda com o tamanho.</p>', acoes: CAT.PORTES.map((x) => ({ txt: `${x.nome} (${x.ex})`, cls: x.id === E.veic.porte ? 'btn-marca' : '', valor: x.id })) });
@@ -300,7 +341,7 @@
     if (E.passo === 'nome') return ir('placa');
     const o = ordem(), i = o.indexOf(E.passo);
     if (i <= 0) return App.voltar();
-    if (o[i - 1] === 'placa') { const cli = E.existente ? null : E.cli, placa = U.semPlaca(E.placa) ? '' : E.placa; E = novo(); E.cli = cli; E.placa = placa; }
+    if (o[i - 1] === 'placa') { const cli = E.existente && !E.ag ? null : E.cli, placa = U.semPlaca(E.placa) ? '' : E.placa, ag = E.ag, cliNovo = E.ag ? E.cliNovo : null; E = novo(); E.cli = cli; E.placa = placa; E.ag = ag; if (cliNovo) E.cliNovo = cliNovo; }
     ir(o[i - 1]);
   };
 
@@ -312,6 +353,13 @@
       if (DB.bloqueado()) { el.innerHTML = `<div class="vazio">${U.icon('alerta')}<p>Assinatura suspensa</p><p class="mudo">Não é possível registrar carros agora. Fale com o dono do lava-rápido.</p></div>`; return; }
       E = novo();
       if (args[0] === 'c' && DB.cliente(args[1])) E.cli = DB.cliente(args[1]);
+      // veio da agenda: cliente, placa e serviço já entram preenchidos
+      const ag = args[0] === 'a' ? Store.por('agendamentos', args[1]) : null;
+      if (ag && ag.status === 'marcado') {
+        E.ag = ag; E.cli = DB.cliente(ag.cliente_id);
+        if (!E.cli) E.cliNovo = { nome: ag.nome || '', telefone: ag.telefone || '' };
+        if (U.placaOk(ag.placa)) E.placa = ag.placa;
+      }
       el.addEventListener('click', toque);
       // teclado do computador também digita a placa
       const tecladoFisico = (e) => {
@@ -323,6 +371,7 @@
       App.aoSairDaTela = () => document.removeEventListener('keydown', tecladoFisico);
       desenhar();
       if (args[0] === 'p' && DB.veiculo(args[1])) escolherVeiculo(args[1]);
+      if (E.ag && E.placa && DB.veiculo(E.placa) && !DB.abertoDaPlaca(E.placa)) escolherVeiculo(E.placa);
     }
   };
 })();

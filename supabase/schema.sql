@@ -513,3 +513,50 @@ grant execute on function public.marca(text), public.acompanhar(text), public.ha
 grant execute on function public.primeiro_admin(text, text, text) to anon, authenticated;
 grant execute on function public.admin_criar_lava(text, text, text, text, text, date), public.admin_editar_lava(uuid, text, boolean, text, date), public.admin_lavas() to authenticated;
 grant execute on function public.criar_acesso(text, text, text, text), public.editar_acesso(uuid, text, text, boolean), public.trocar_senha_acesso(uuid, text) to authenticated;
+
+-- =====================================================================
+-- Versão 2 (03/10/2026): agenda e acessos criados pelo administrador
+-- =====================================================================
+create table if not exists public.agendamentos (
+  id             uuid primary key default gen_random_uuid(),
+  lava_id        uuid not null references public.lavas(id) on delete cascade,
+  cliente_id     uuid references public.clientes(id),
+  nome           text not null,
+  telefone       text,
+  placa          text,
+  veiculo        text,
+  servico        text,
+  valor          numeric not null default 0,
+  quando         timestamptz not null,
+  obs            text,
+  status         text not null default 'marcado' check (status in ('marcado', 'chegou', 'faltou', 'cancelado')),
+  atendimento_id uuid,
+  criado_por     text,
+  criado_em      timestamptz not null default now(),
+  atualizado_em  timestamptz not null default now()
+);
+create index if not exists agend_lava_quando on public.agendamentos(lava_id, quando);
+create index if not exists agend_lava_atualizado on public.agendamentos(lava_id, atualizado_em);
+drop trigger if exists carimbar on public.agendamentos;
+create trigger carimbar before insert or update on public.agendamentos for each row execute function public.carimbar();
+alter table public.agendamentos enable row level security;
+drop policy if exists ver on public.agendamentos; drop policy if exists criar on public.agendamentos; drop policy if exists editar on public.agendamentos;
+create policy ver on public.agendamentos for select to authenticated using (lava_id = (select public.meu_lava()));
+create policy criar on public.agendamentos for insert to authenticated
+  with check (lava_id = (select public.meu_lava()) and (select public.lava_ativo()));
+create policy editar on public.agendamentos for update to authenticated
+  using (lava_id = (select public.meu_lava()))
+  with check (lava_id = (select public.meu_lava()) and (select public.lava_ativo()));
+revoke all on public.agendamentos from anon, authenticated;
+grant select, insert, update on public.agendamentos to authenticated;
+
+create or replace function public.admin_criar_acesso(p_lava uuid, p_login text, p_senha text, p_nome text, p_perfil text) returns uuid
+language plpgsql security definer set search_path = public as $$
+begin
+  if not public.eh_admin() then raise exception 'Só o administrador pode criar este acesso'; end if;
+  if p_perfil not in ('dono', 'funcionario') then raise exception 'Perfil inválido'; end if;
+  if not exists (select 1 from public.lavas where id = p_lava) then raise exception 'Lava-rápido não encontrado'; end if;
+  return public.novo_usuario(p_login, p_senha, p_nome, p_perfil, p_lava);
+end $$;
+revoke all on function public.admin_criar_acesso(uuid, text, text, text, text) from public, anon, authenticated;
+grant execute on function public.admin_criar_acesso(uuid, text, text, text, text) to authenticated;

@@ -132,6 +132,17 @@
       s.dica = { placa: veicDe(fiel.id)[0].placa, nome: fiel.nome };
     }
 
+    // agenda: horários marcados para hoje e os próximos dias
+    const marcados = s.clientes.filter((c) => !s.atendimentos.some((a) => a.cliente_id === c.id && U.dia(a.entrada_em) === s.dia)).slice(60, 66);
+    const svAgenda = [s.servicos[3], s.servicos[4], s.servicos[2], s.servicos[3], s.servicos[1], s.servicos[4]];
+    const base = new Date(agora + 80 * 60000); base.setMinutes(base.getMinutes() < 30 ? 30 : 60, 0, 0);
+    [[0, 0], [0, 150], [1, 9 * 60], [1, 14 * 60], [2, 10 * 60], [3, 8 * 60 + 30]].forEach(([dia, min], i) => {
+      const c = marcados[i], v = veicDe(c.id)[0], sv = svAgenda[i];
+      let q = dia === 0 ? new Date(base.getTime() + min * 60000) : (() => { const x = U.somaDias(hoje, dia); x.setMinutes(min); return x; })();
+      if (dia === 0 && (U.dia(q) !== s.dia || q.getHours() < 7)) { q = U.somaDias(hoje, 1); q.setHours(11, i * 15, 0, 0); }   // de noite: passa para amanhã cedo
+      s.agendamentos.push({ id: id(), lava_id: LAVA, cliente_id: c.id, nome: c.nome, telefone: c.telefone, placa: v.placa, veiculo: DB.nomeVeiculo(v), servico: sv.nome, valor: sv.precos[v.porte] || 0, quando: q.toISOString(), obs: '', status: 'marcado', atendimento_id: null, criado_por: 'Carlos', criado_em: new Date().toISOString() });
+    });
+
     // despesas dos últimos 4 meses
     for (let m = 0; m < 4; m++) {
       const base = new Date(hoje.getFullYear(), hoje.getMonth() - m, 1);
