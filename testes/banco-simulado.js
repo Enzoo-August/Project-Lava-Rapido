@@ -72,7 +72,7 @@
       }
       let rows = F.t[tab].filter((x) => q.filtros.every((f) => f(x)));
       // regra do banco: funcionário só vê atendimento em aberto ou das últimas 36 horas
-      if (tab === 'atendimentos' && F.usuario.perfil !== 'dono') rows = rows.filter((a) => ['aguardando', 'lavando', 'pronto'].includes(a.status) || new Date(a.entrada_em) > Date.now() - 36 * 3600e3);
+      if (tab === 'atendimentos' && F.usuario.perfil !== 'dono') rows = rows.filter((a) => ['aguardando', 'lavando', 'pronto'].includes(a.status) || Math.max(new Date(a.entrada_em), new Date(a.entregue_em || 0), new Date(a.cancelado_em || 0)) > Date.now() - 36 * 3600e3);
       if (tab === 'despesas' && F.usuario.perfil !== 'dono') rows = [];
       for (const [c, asc] of q.ordens.slice().reverse()) rows.sort((a, b) => (a[c] === b[c] ? 0 : (a[c] > b[c] ? 1 : -1) * (asc ? 1 : -1)));
       if (q.faixa) rows = rows.slice(q.faixa[0], q.faixa[1] + 1);
@@ -85,7 +85,13 @@
       gt: (c, v) => { q.filtros.push((x) => x[c] > v); return api; },
       gte: (c, v) => { q.filtros.push((x) => x[c] >= v); return api; },
       lt: (c, v) => { q.filtros.push((x) => x[c] < v); return api; },
-      or: (txt) => { const m = /entrada_em\.gte\."([^"]+)"/.exec(txt); q.filtros.push((x) => ['aguardando', 'lavando', 'pronto'].includes(x.status) || x.entrada_em >= m[1]); return api; },
+      or: (txt) => {
+        const datas = Array.from(txt.matchAll(/"([^"]+)"/g), (m) => new Date(m[1]).getTime());
+        const em = (iso, a, b) => !!iso && new Date(iso).getTime() >= a && (b === undefined || new Date(iso).getTime() < b);
+        if (txt.startsWith('and(')) q.filtros.push((x) => em(x.entrada_em, datas[0], datas[1]) || em(x.entregue_em, datas[0], datas[1]));
+        else q.filtros.push((x) => ['aguardando', 'lavando', 'pronto'].includes(x.status) || em(x.entrada_em, datas[0]) || em(x.entregue_em, datas[0]) || em(x.cancelado_em, datas[0]));
+        return api;
+      },
       order: (c, o) => { q.ordens.push([c, !(o && o.ascending === false)]); return api; },
       range: (a, b) => { q.faixa = [a, b]; return api; },
       limit: (n) => { q.faixa = [0, n - 1]; return api; },

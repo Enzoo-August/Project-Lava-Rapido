@@ -1,6 +1,6 @@
 # Escopo do produto
 
-Versão 2, de 02/10/2026 (a versão 1 foi publicada no mesmo dia; a 2 trouxe agenda, serviço livre e barra escura). Este é o padrão que vale para todos os lava-rápidos. A personalização de cada cliente (logo, cor, preços, textos) é feita dentro do próprio aplicativo, em Ajustes, sem mexer no código.
+Versão 3, de 04/10/2026. (Versão 2, de 02/10: agenda, serviço livre e barra escura. Versão 3: aparência escura, carros que ficam vários dias e teste completo de funções.) Este é o padrão que vale para todos os lava-rápidos. A personalização de cada cliente (logo, cor, preços, textos) é feita dentro do próprio aplicativo, em Ajustes, sem mexer no código.
 
 ## O problema que resolve
 
@@ -75,6 +75,9 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 
 ### Para não dar problema
 
+- **Carro que fica vários dias:** o carro conta no dia em que chegou e o dinheiro conta no dia em que foi entregue. “Entregues hoje” e “Recebido hoje” mostram o que saiu hoje, mesmo que tenha chegado antes. O cartão do pátio mostra a data de chegada.
+- **Aparência clara, escura ou automática:** cada aparelho escolhe a sua (menu do funcionário, Mais ou Ajustes). A marca do lava continua valendo nas duas.
+
 - **Sem internet:** continua funcionando. O que foi registrado fica no aparelho e é enviado sozinho quando o sinal volta. O topo da tela mostra quantos faltam enviar.
 - **Vários aparelhos:** o pátio se atualiza a cada 8 segundos.
 - **Toque duplo:** botões respondem uma vez só.
@@ -83,7 +86,7 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 
 ## Segurança testada
 
-46 conferências feitas direto no banco, em 02/10/2026, todas aprovadas. Principais:
+Conferências feitas direto no banco, todas aprovadas: 46 em 02/10/2026 e, em 04/10/2026, mais 32 usando os quatro logins reais (administrador, dono e funcionário da Garagem Z, dono do lava de teste), dentro de uma transação desfeita. Principais:
 
 - Um lava não lê nem altera nada de outro lava.
 - Funcionário não vê despesas nem o faturamento antigo (só o pátio e as últimas 36 horas), não altera preços, marca ou acessos.
@@ -91,6 +94,7 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - Dono não altera a própria assinatura.
 - Sem login, só funcionam a marca do lava e o acompanhamento por link.
 - Lava suspenso lê mas não grava. Acesso bloqueado não lê nada.
+- Funcionário entrega e cancela carro que entrou há vários dias (corrigido em 04/10/2026: antes o banco recusava depois de 36 horas).
 
 ## O que NÃO está pronto (e por quê)
 

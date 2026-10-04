@@ -113,7 +113,7 @@
     for (let i = 0; ; i += PAG) {
       let q = N.sb.from(t).select('*').eq('lava_id', lavaId());
       if (desde) q = q.gt('atualizado_em', desde);
-      else if (t === 'atendimentos') q = q.or(`status.in.(aguardando,lavando,pronto),entrada_em.gte."${U.somaDias(U.inicioDia(), -2).toISOString()}"`);
+      else if (t === 'atendimentos') { const d = U.somaDias(U.inicioDia(), -2).toISOString(); q = q.or(`status.in.(aguardando,lavando,pronto),entrada_em.gte."${d}",entregue_em.gte."${d}",cancelado_em.gte."${d}"`); }
       else if (t === 'agendamentos') q = q.gte('quando', U.somaDias(U.inicioDia(), -7).toISOString());
       else if (t === 'despesas') q = q.gte('data', U.dia(U.somaDias(new Date(), -400)));
       const rows = ok(await q.order('atualizado_em').order(chave).range(i, i + PAG - 1));
@@ -174,7 +174,9 @@
     if (m && Date.now() - m.em < 20000) return m.rows;
     const out = [];
     for (let i = 0; ; i += PAG) {
-      const rows = ok(await N.sb.from('atendimentos').select('*').eq('lava_id', lavaId()).gte('entrada_em', deIso).lt('entrada_em', ateIso).order('entrada_em').order('id').range(i, i + PAG - 1));
+      // chegou no período OU foi entregue no período (o dinheiro conta no dia da entrega)
+      const rows = ok(await N.sb.from('atendimentos').select('*').eq('lava_id', lavaId())
+        .or(`and(entrada_em.gte."${deIso}",entrada_em.lt."${ateIso}"),and(entregue_em.gte."${deIso}",entregue_em.lt."${ateIso}")`).order('entrada_em').order('id').range(i, i + PAG - 1));
       out.push(...rows);
       if (rows.length < PAG) break;
     }
@@ -256,7 +258,7 @@
     if (c && c.user && c.user.id === user.id && c.s) {
       // atendimentos antigos já encerrados saem da cópia (o histórico fica no banco)
       const corte = U.somaDias(U.inicioDia(), -3).toISOString();
-      c.s.atendimentos = (c.s.atendimentos || []).filter((a) => ['aguardando', 'lavando', 'pronto'].includes(a.status) || a.entrada_em > corte || (c.fila || []).some((op) => op.k === a.id));
+      c.s.atendimentos = (c.s.atendimentos || []).filter((a) => ['aguardando', 'lavando', 'pronto'].includes(a.status) || a.entrada_em > corte || (a.entregue_em && a.entregue_em > corte) || (a.cancelado_em && a.cancelado_em > corte) || (c.fila || []).some((op) => op.k === a.id));
       Store.usar(c.s); N.fila = c.fila || []; N.falhas = c.falhas || []; N.ultimo = c.ultimo || {};
     } else { Store.usar(Store.vazio()); N.fila = []; N.falhas = []; N.ultimo = {}; }
     N.pronto = true;

@@ -9,33 +9,45 @@
 
   // ---------------- contas ----------------
   const somar = (mapa, k, campo, v) => { const o = mapa.get(k) || mapa.set(k, { rot: k, qtd: 0, valor: 0 }).get(k); o[campo] += v; return o; };
-  An.resumo = (lista) => {
-    const validos = lista.filter((a) => a.status !== 'cancelado'), entregues = validos.filter((a) => a.status === 'entregue');
+  // de/ate (opcionais) = período. O carro conta no dia em que CHEGOU; o dinheiro conta no dia em que foi ENTREGUE
+  // (um polimento que entra na segunda e sai na quarta é carro de segunda e dinheiro de quarta).
+  An.resumo = (lista, de, ate) => {
+    const t0 = de ? de.getTime() : -Infinity, t1 = ate ? ate.getTime() : Infinity;
+    const dentro = (iso) => { if (!iso) return false; const t = new Date(iso).getTime(); return t >= t0 && t < t1; };
+    const validos = lista.filter((a) => a.status !== 'cancelado');
+    const chegaram = validos.filter((a) => dentro(a.entrada_em));
+    const entregues = validos.filter((a) => a.status === 'entregue' && dentro(a.entregue_em || a.entrada_em));
     const fat = entregues.reduce((t, a) => t + (Number(a.total) || 0), 0);
-    const comPronto = validos.filter((a) => a.pronto_em);
+    const comPronto = chegaram.filter((a) => a.pronto_em);
     const r = {
-      carros: validos.length, entregues: entregues.length, faturamento: fat,
+      carros: chegaram.length, entregues: entregues.length, faturamento: fat,
       ticket: entregues.length ? fat / entregues.length : 0,
-      novos: validos.filter((a) => a.cliente_novo).length,
+      novos: chegaram.filter((a) => a.cliente_novo).length,
       descontos: entregues.reduce((t, a) => t + (Number(a.desconto) || 0), 0),
-      premios: validos.filter((a) => a.pontos_usados > 0).length,
-      cancelados: lista.length - validos.length,
-      aReceber: validos.filter((a) => a.status !== 'entregue').reduce((t, a) => t + (Number(a.total) || 0), 0),
+      premios: chegaram.filter((a) => a.pontos_usados > 0).length,
+      cancelados: lista.filter((a) => a.status === 'cancelado' && dentro(a.entrada_em)).length,
+      aReceber: chegaram.filter((a) => a.status !== 'entregue').reduce((t, a) => t + (Number(a.total) || 0), 0),
       tempoMedio: comPronto.length ? comPronto.reduce((t, a) => t + (new Date(a.pronto_em) - new Date(a.entrada_em)) / 60000, 0) / comPronto.length : 0,
       porDia: new Map(), porServico: new Map(), porPagamento: new Map(), porHora: new Map(), porSemana: new Map(), porLavador: new Map(), porPorte: new Map()
     };
     const dias = new Set();
-    for (const a of validos) {
-      const d = new Date(a.entrada_em), dia = U.dia(d), pago = a.status === 'entregue';
+    for (const a of chegaram) {
+      const d = new Date(a.entrada_em), dia = U.dia(d);
       dias.add(dia);
-      somar(r.porDia, dia, 'qtd', 1); if (pago) somar(r.porDia, dia, 'valor', Number(a.total) || 0);
+      somar(r.porDia, dia, 'qtd', 1);
       somar(r.porHora, d.getHours(), 'qtd', 1);
-      somar(r.porSemana, d.getDay(), 'qtd', 1); if (pago) somar(r.porSemana, d.getDay(), 'valor', Number(a.total) || 0);
-      const fator = a.valor ? (Number(a.total) || 0) / a.valor : 1;   // o desconto é repartido entre os serviços
-      for (const s of a.servicos || []) { somar(r.porServico, s.nome, 'qtd', 1); if (pago) somar(r.porServico, s.nome, 'valor', (Number(s.valor) || 0) * fator); }
-      if (pago) { somar(r.porPagamento, a.pagamento || 'Não informado', 'qtd', 1); somar(r.porPagamento, a.pagamento || 'Não informado', 'valor', Number(a.total) || 0); }
+      somar(r.porSemana, d.getDay(), 'qtd', 1);
+      for (const s of a.servicos || []) somar(r.porServico, s.nome, 'qtd', 1);
       if (a.lavador) somar(r.porLavador, a.lavador, 'qtd', 1);
       const v = DB.veiculo(a.placa); if (v) somar(r.porPorte, CAT.porteNome(v.porte), 'qtd', 1);
+    }
+    for (const a of entregues) {
+      const d = new Date(a.entregue_em || a.entrada_em), total = Number(a.total) || 0;
+      somar(r.porDia, U.dia(d), 'valor', total);
+      somar(r.porSemana, d.getDay(), 'valor', total);
+      const fator = a.valor ? total / a.valor : 1;   // o desconto é repartido entre os serviços
+      for (const s of a.servicos || []) somar(r.porServico, s.nome, 'valor', (Number(s.valor) || 0) * fator);
+      somar(r.porPagamento, a.pagamento || 'Não informado', 'qtd', 1); somar(r.porPagamento, a.pagamento || 'Não informado', 'valor', total);
     }
     r.diasComMovimento = dias.size;
     // quantas vezes cada dia da semana aparece (para a média por dia)
@@ -166,9 +178,9 @@
 
       const [lista, antes] = await Promise.all([DB.periodo(de, ate), DB.periodo(ade, aate)]);
       const corpo = el.querySelector('#rCorpo'); if (!corpo || minha !== vez) return;
-      const r = An.resumo(lista), ant = An.resumo(antes);
+      const r = An.resumo(lista, de, ate), ant = An.resumo(antes, ade, aate);
       const desp = DB.despesasDe(de, ate).reduce((t, d) => t + (Number(d.valor) || 0), 0);
-      if (!r.carros) { corpo.innerHTML = `<div class="vazio">${U.icon('grafico')}<p>Sem movimento neste período</p><p class="mudo">Os números aparecem conforme os carros são registrados.</p></div>`; return; }
+      if (!r.carros && !r.entregues) { corpo.innerHTML = `<div class="vazio">${U.icon('grafico')}<p>Sem movimento neste período</p><p class="mudo">Os números aparecem conforme os carros são registrados.</p></div>`; return; }
 
       // colunas por dia (ou por hora, quando o período é um dia só)
       const umDia = P[0] === 'hoje', dinheiro = medida === 'valor';

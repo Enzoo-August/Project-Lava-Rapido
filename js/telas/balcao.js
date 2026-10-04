@@ -10,7 +10,7 @@
       const fila = abertos.filter((a) => a.status === 'aguardando').length;
       const lavando = abertos.filter((a) => a.status === 'lavando').length;
       const prontos = abertos.filter((a) => a.status === 'pronto').length;
-      const entregues = DB.doDia().filter((a) => a.status === 'entregue').length;
+      const entregues = DB.entreguesHoje().length;
       const atrasados = abertos.filter(DB.atrasado).length;
       const patio = fila + lavando;
       const detalhe = patio === 0 ? 'nenhum carro agora' : [fila ? `${fila} na fila` : '', lavando ? `${lavando} lavando` : ''].filter(Boolean).join(' · ');

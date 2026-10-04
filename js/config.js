@@ -10,5 +10,5 @@ window.LAVA_CFG = {
   dominioLogin: 'lava.local',
   // WhatsApp de quem dá suporte ao sistema (aparece na Ajuda e no aviso de assinatura). Só números, com DDD.
   suporte: '',
-  versao: 1
+  versao: 3
 };

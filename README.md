@@ -54,17 +54,24 @@ O site é publicado pelo GitHub Pages a partir da branch `main`: cada `git push`
 
 A cada versão nova, aumente o número em dois lugares, para os aparelhos pegarem os arquivos novos:
 
-1. `?v=1` nos arquivos de `index.html`
-2. `CACHE = 'lava-rapido-v1'` em `sw.js`
+1. `?v=3` nos arquivos de `index.html`
+2. `CACHE = 'lava-rapido-v3'` em `sw.js`
+3. `versao` em `js/config.js` (aparece na tela Mais)
+4. gere de novo `testes/nuvem.html` (é o `index.html` com o banco simulado)
 
 Mudanças só no banco (Supabase) valem na hora e não precisam publicar.
 
 ## Testar antes de publicar
 
-1. Abra `?demo=1` e passe pelos dois perfis.
+1. Abra `?demo=1` e rode o roteiro completo de funções (131 conferências, cerca de 1 minuto):
+   ```js
+   await import('./testes/roteiro-demo.js'); await testeTudo()
+   ```
+   Tem de terminar com "0 falhas".
 2. No console do navegador, em cada tamanho de tela (360×640, 375×812, 768×1024, 1024×768, 1366×768):
    ```js
    await import('./testes/aud.js'); await aud('funcionario', 'ZZZ9Z99'); await aud('dono', 'YYY8Y88')
    ```
    Tem de responder "sem problemas".
-3. Mudou o banco? Rode de novo o teste de segurança descrito em [docs/ESCOPO.md](docs/ESCOPO.md#segurança-testada).
+3. Sincronização (fila sem internet, vários aparelhos): abra `testes/nuvem.html` e siga o topo de `testes/roteiro-nuvem.js`.
+4. Mudou o banco? Rode de novo o teste de segurança descrito em [docs/ESCOPO.md](docs/ESCOPO.md#segurança-testada).

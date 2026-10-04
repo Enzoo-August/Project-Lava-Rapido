@@ -14,8 +14,10 @@
   const tempoTxt = (a) => {
     if (a.status === 'entregue') return `Entregue ${U.hora(a.entregue_em)} · ${U.esc(a.pagamento || 'sem pagamento')}`;
     if (a.status === 'pronto') return `Pronto ${U.haQuanto(a.pronto_em)}${a.avisado_em ? ' · cliente avisado' : ''}`;
-    const prev = a.previsao ? (DB.atrasado(a) ? `<b class="atraso">atrasado (era ${U.hora(a.previsao)})</b>` : `previsão ${U.hora(a.previsao)}`) : '';
-    return `Chegou ${U.hora(a.entrada_em)} (${U.haQuanto(a.entrada_em)})${prev ? ' · ' + prev : ''}`;
+    // carro que fica mais de um dia mostra a data, não só a hora
+    const q = (d) => U.dataHora(d).replace('hoje ', '');
+    const prev = a.previsao ? (DB.atrasado(a) ? `<b class="atraso">atrasado (era ${q(a.previsao)})</b>` : `previsão ${q(a.previsao)}`) : '';
+    return `Chegou ${q(a.entrada_em)} (${U.haQuanto(a.entrada_em)})${prev ? ' · ' + prev : ''}`;
   };
 
   const botao = (a) => {
@@ -272,7 +274,7 @@
       const listas = {
         patio: abertos.filter((a) => a.status !== 'pronto').sort((a, b) => (a.status === b.status ? (a.entrada_em < b.entrada_em ? -1 : 1) : a.status === 'lavando' ? -1 : 1)),
         pronto: abertos.filter((a) => a.status === 'pronto'),
-        entregue: DB.doDia().filter((a) => a.status === 'entregue').sort((a, b) => (a.entregue_em > b.entregue_em ? -1 : 1))
+        entregue: DB.entreguesHoje().sort((a, b) => (a.entregue_em > b.entregue_em ? -1 : 1))
       };
       const lista = listas[aba];
       const vazio = { patio: ['carro', 'Nenhum carro no pátio', 'Quando chegar um carro, toque em “Chegou carro”.'], pronto: ['check', 'Nenhum carro esperando', 'Os carros prontos aparecem aqui até o dono buscar.'], entregue: ['chave', 'Nenhum carro entregue hoje', 'Os carros que já saíram hoje aparecem aqui.'] }[aba];

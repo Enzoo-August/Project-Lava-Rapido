@@ -121,6 +121,7 @@
     loja: '<path d="M4 9.500l1.500-5h13l1.500 5M4 9.500V20h16V9.500M4 9.500a2.700 2.700 0 005.300 0 2.700 2.700 0 005.400 0 2.700 2.700 0 005.300 0M9.500 20v-5.500h5V20"/>',
     apagar: '<path d="M4 7h16M9 7V4h6v3M6.500 7l1 13h9l1-13"/>',
     calendario: '<rect x="3.500" y="5" width="17" height="15.500" rx="2"/><path d="M3.500 10h17M8 3v4M16 3v4M8 14h2.500M13.500 14H16M8 17.500h2.500"/>',
+    lua: '<path d="M20 14.500A8 8 0 019.500 4a7 7 0 1010.500 10.500z"/>',
     bandeira: '<path d="M5 21V4M5 4.500h12l-2.500 4 2.500 4H5"/>'
   };
   U.icon = (nome, cls) => `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.900" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[nome] || ''}</svg>`;

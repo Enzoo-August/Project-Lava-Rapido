@@ -49,6 +49,8 @@
 
   DB.abertos = () => Store.s.atendimentos.filter((a) => DB.ABERTOS.includes(a.status)).sort((a, b) => (a.entrada_em < b.entrada_em ? -1 : 1));
   DB.doDia = (dia) => { dia = dia || U.dia(); return Store.s.atendimentos.filter((a) => a.status !== 'cancelado' && U.dia(a.entrada_em) === dia); };
+  // entregues hoje = saíram hoje, mesmo que tenham chegado em outro dia
+  DB.entreguesHoje = () => { const hoje = U.dia(); return Store.s.atendimentos.filter((a) => a.status === 'entregue' && U.dia(a.entregue_em || a.entrada_em) === hoje); };
   DB.abertoDaPlaca = (placa) => Store.s.atendimentos.find((a) => a.placa === placa && DB.ABERTOS.includes(a.status)) || null;
   DB.atrasado = (a) => !!a.previsao && ['aguardando', 'lavando'].includes(a.status) && new Date(a.previsao).getTime() < Date.now();
 
@@ -227,7 +229,8 @@
   // ---------------- períodos (painel do dono) ----------------
   // atendimentos com entrada entre "de" (inclusive) e "ate" (exclusive)
   DB.periodo = async (de, ate) => {
-    const local = () => Store.s.atendimentos.filter((a) => a.entrada_em >= de.toISOString() && a.entrada_em < ate.toISOString());
+    const dentro = (iso) => { if (!iso) return false; const t = new Date(iso).getTime(); return t >= de.getTime() && t < ate.getTime(); };
+    const local = () => Store.s.atendimentos.filter((a) => dentro(a.entrada_em) || dentro(a.entregue_em));
     if (Store.modo !== 'nuvem') return local();
     try { return await Nuvem.periodo(de.toISOString(), ate.toISOString()); }
     catch (e) { U.toast('Sem internet: mostrando só o que está guardado no aparelho.', 'bad'); return local(); }

@@ -57,7 +57,14 @@ window.testeFuncionario = async () => {
   const fg = FAKE.t.agendamentos[0]; fg.status = 'cancelado'; fg.atualizado_em = carimbo(8000);
   await Nuvem.puxar(['agendamentos']);
   ok('horário cancelado em outro aparelho some da agenda', g.status === 'cancelado' && !DB.agenda().length);
-  // 7. entrega
+  // 7. carro que entrou há 4 dias (outro aparelho registrou) e é entregue hoje pelo funcionário
+  const velho = { id: U.uuid(), lava_id: Store.s.lava.id, numero: 1, placa: 'QQQ1Q11', veiculo: 'Gol preto', cliente_id: cli.id, servicos: [{ id: 'livre-1', nome: 'Polimento', valor: 500 }], valor: 500, desconto: 0, total: 500, pontos_usados: 0, status: 'pronto', entrada_em: new Date(Date.now() - 4 * 864e5).toISOString(), pronto_em: new Date().toISOString(), token: 'velho', atualizado_em: carimbo(9000) };
+  FAKE.t.atendimentos.push(velho); await Nuvem.puxar(['atendimentos']);
+  const meu = Store.por('atendimentos', velho.id);
+  ok('carro de 4 dias atrás aparece no pátio', !!meu && DB.abertos().includes(meu));
+  DB.status(meu, 'entregue', { pagamento: 'Dinheiro' }); await esp(1500);
+  ok('funcionário entrega carro de vários dias: salvo no banco e conta em “Entregues hoje”', Nuvem.falhas.length === 1 && FAKE.t.atendimentos.find((x) => x.id === velho.id).status === 'entregue' && DB.entreguesHoje().includes(meu), 'falhas ' + Nuvem.falhas.length);
+  // 8. entrega
   DB.status(a, 'entregue', { pagamento: 'Pix' }); await esp(1500);
   ok('entrega: gasto conferido pelo banco', DB.cliente(a.cliente_id).gasto === 40 && FAKE.t.atendimentos[0].pagamento === 'Pix');
   location.hash = '#/resultados'; await esp(300);

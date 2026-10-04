@@ -89,7 +89,7 @@
           const sit = !l.ativo ? '<span class="tag cancelado">suspenso</span>' : venc != null && venc > 0 ? '<span class="tag aguardando">vencido</span>' : '<span class="tag pronto">em dia</span>';
           return `<button type="button" class="linha" data-l="${l.id}">
             <span class="linha-txt"><b>${U.esc(l.nome)}</b>
-              <small>${U.esc(l.dono || 'sem dono')} · ${l.carros_30d} carros em 30 dias · ${l.clientes} clientes${l.ultimo_movimento ? ' · último ' + U.haQuanto(l.ultimo_movimento) : ' · nunca usou'}</small>
+              <small>${l.dono ? U.esc(l.dono) : '<span class="alerta-txt">sem login de dono</span>'} · ${l.carros_30d} carros em 30 dias · ${l.clientes} clientes${l.ultimo_movimento ? ' · último ' + U.haQuanto(l.ultimo_movimento) : ' · nunca usou'}</small>
               <small>${U.esc(l.plano)}${l.pago_ate ? ' · pago até ' + U.dataBR(l.pago_ate) : ''} · ?l=${U.esc(l.slug)}</small></span>
             ${sit}</button>`;
         }).join('') || '<p class="mudo centro">Nenhum lava-rápido cadastrado ainda.</p>'}</div>

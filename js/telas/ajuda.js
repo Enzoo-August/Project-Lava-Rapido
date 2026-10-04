@@ -43,6 +43,11 @@
       el.innerHTML = `${soInstalar ? '' : `
         <section class="cartao"><div class="cartao-cab"><h3>${U.icon('carro')} O dia a dia, em 5 passos</h3></div>${BALCAO.map((p, i) => passo(i + 1, p[0], p[1])).join('')}</section>
         ${dono ? `<section class="cartao"><div class="cartao-cab"><h3>${U.icon('grafico')} O que só o dono vê</h3></div>${DONO.map((p) => passo('•', p[0], p[1])).join('')}</section>` : ''}
+        <section class="cartao"><div class="cartao-cab"><h3>${U.icon('calendario')} Agenda e serviços especiais</h3></div>
+          ${passo('•', 'Marcar horário', 'Em <b>Agenda</b>, toque em <b>Marcar horário</b>. No dia, toque em <b>Chegou</b> e a entrada já vem preenchida. <b>Lembrar</b> manda o lembrete no WhatsApp.')}
+          ${passo('•', 'Serviço que não está na lista', 'Na hora de escolher o serviço, toque em <b>Outro serviço</b> e escreva o nome e o valor.')}
+          ${passo('•', 'Serviço “a combinar”', 'Se o serviço não tem preço na tabela, o aplicativo pergunta o valor quando você marca.')}
+          ${passo('•', 'Carro que fica mais de um dia', 'Em <b>Fica pronto quando?</b>, toque em <b>Outro dia</b> e escolha o dia e a hora.')}</section>
         <section class="cartao"><div class="cartao-cab"><h3>${U.icon('presente')} Fidelidade</h3></div>
           <p class="mudo">Cada lavagem vale 1 ponto. Quando o cliente completa os pontos, o aplicativo avisa na hora da chegada. Pergunte se ele quer <b>usar o desconto agora</b> ou <b>guardar</b> para um desconto maior.</p></section>
         <section class="cartao"><div class="cartao-cab"><h3>${U.icon('nuvem')} E se a internet cair?</h3></div>

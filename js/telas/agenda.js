@@ -122,6 +122,9 @@
           if (!x.dia || !x.hora) { U.toast('Informe o dia e a hora.', 'bad'); return false; }
           if (x.placa && !U.placaOk(x.placa)) { U.toast('Confira a placa (ex.: ABC1D23 ou ABC1234), ou deixe em branco.', 'bad'); return false; }
           const q = U.deDia(x.dia); q.setHours(Number(x.hora.slice(0, 2)), Number(x.hora.slice(3, 5)), 0, 0);
+          // já tem alguém nesse horário? avisa uma vez; tocando de novo, marca assim mesmo
+          const perto = DB.agenda().find((o) => o !== g && Math.abs(new Date(o.quando).getTime() - q.getTime()) < 30 * 60000);
+          if (perto && el.dataset.avisou !== q.toISOString()) { el.dataset.avisou = q.toISOString(); U.toast(`Já tem ${U.primeiroNome(perto.nome)} às ${U.hora(perto.quando)} nesse dia. Para marcar assim mesmo, toque de novo.`, 'bad'); return false; }
           if (!clienteId) { const c = DB.clientePorTelefone(x.telefone); if (c) clienteId = c.id; }
           DB.salvarAgendamento(g, {
             cliente_id: clienteId, nome: x.nome, telefone: x.telefone, quando: q.toISOString(),

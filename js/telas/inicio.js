@@ -19,8 +19,9 @@
   Telas.inicio = {
     titulo: 'Início', perfis: ['dono'], relogio: true,
     render: (el) => {
-      const hoje = DB.doDia(), r = An.resumo(hoje), abertos = DB.abertos();
-      const ontem = An.resumo(DB.doDia(U.dia(U.somaDias(new Date(), -1))));
+      const h0 = U.inicioDia(), abertos = DB.abertos();
+      const r = An.resumo(Store.s.atendimentos, h0, U.somaDias(h0, 1)), ontem = An.resumo(Store.s.atendimentos, U.somaDias(h0, -1), h0);
+      const aReceber = abertos.reduce((t, a) => t + (Number(a.total) || 0), 0);   // tudo que está no pátio, de qualquer dia
       const atrasados = abertos.filter(DB.atrasado).length, prontos = abertos.filter((a) => a.status === 'pronto').length;
       const pag = An.ordenado(r.porPagamento, 'valor');
       const ps = passos(), faltam = ps.filter((p) => !p.ok);
@@ -36,12 +37,12 @@
 
         <section class="hoje">
           <div class="hoje-num"><span>Recebido hoje</span><b>${U.brl(r.faturamento)}</b>
-            <small>${r.aReceber ? `+ ${U.brl(r.aReceber)} a receber dos carros no pátio` : 'nenhum carro pendente'}${ontem.faturamento ? ` · ontem: ${U.brl(ontem.faturamento)}` : ''}</small></div>
+            <small>${aReceber ? `+ ${U.brl(aReceber)} a receber dos carros no pátio` : 'nenhum carro pendente'}${ontem.faturamento ? ` · ontem: ${U.brl(ontem.faturamento)}` : ''}</small></div>
           <a class="btn btn-marca btn-g so-celular" href="#/entrada">${U.icon('mais')}<span>Chegou carro</span></a>
         </section>
 
         <div class="kpis">
-          <a class="kpi" href="#/patio/entregue"><span>Carros hoje</span><b>${r.carros}</b><small class="delta">${ontem.carros ? 'ontem: ' + ontem.carros : '&nbsp;'}</small></a>
+          <a class="kpi" href="#/patio/entregue"><span>Chegaram hoje</span><b>${r.carros}</b><small class="delta">${ontem.carros ? 'ontem: ' + ontem.carros : '&nbsp;'}</small></a>
           <a class="kpi" href="#/patio"><span>No pátio agora</span><b>${abertos.length - prontos}</b><small class="delta ${atrasados ? 'desce' : ''}">${atrasados ? `${atrasados} atrasado${atrasados > 1 ? 's' : ''}` : 'sem atraso'}</small></a>
           <a class="kpi" href="#/patio/pronto"><span>Prontos, esperando</span><b>${prontos}</b><small class="delta">&nbsp;</small></a>
           <div class="kpi"><span>Valor médio por carro</span><b>${U.brl(r.ticket)}</b><small class="delta">${r.novos ? `${r.novos} cliente${r.novos > 1 ? 's' : ''} novo${r.novos > 1 ? 's' : ''} hoje` : '&nbsp;'}</small></div>

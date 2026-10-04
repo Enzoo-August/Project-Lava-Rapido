@@ -22,26 +22,47 @@
     st.setProperty('--marca', cor);
     st.setProperty('--marca-txt', U.textoSobre(cor));
     st.setProperty('--marca-forte', U.misturar(cor, '#000000', 0.18));
-    st.setProperty('--marca-clara', U.misturar(cor, '#ffffff', 0.9));
-    // cor da marca para textos e traços sobre fundo claro (escurece cores muito claras, como amarelo)
-    st.setProperty('--marca-tinta', U.luminancia(cor) > 0.28 ? U.misturar(cor, '#000000', 0.45) : cor);
+    const esc = App.escuro(), sup = esc ? '#181e25' : '#ffffff';
+    st.setProperty('--marca-clara', U.misturar(cor, sup, esc ? 0.8 : 0.9));
+    // cor da marca para textos e traços: no claro escurece cores muito claras (amarelo); no escuro clareia as muito escuras
+    st.setProperty('--marca-tinta', esc ? (U.luminancia(cor) < 0.3 ? U.misturar(cor, '#ffffff', 0.5) : cor) : (U.luminancia(cor) > 0.28 ? U.misturar(cor, '#000000', 0.45) : cor));
     // topo do aplicativo: claro (padrão), escuro ou na cor da marca
-    const topo = m.topo === 'escuro' ? '#10151c' : m.topo === 'marca' ? cor : '';
-    const topoTx = topo ? U.textoSobre(topo) : '#10151c';
-    st.setProperty('--topo-bg', topo || '#ffffff');
+    const topo = m.topo === 'escuro' ? (esc ? '#05080b' : '#10151c') : m.topo === 'marca' ? cor : '';
+    const topoTx = topo ? U.textoSobre(topo) : esc ? '#eef1f4' : '#10151c';
+    st.setProperty('--topo-bg', topo || sup);
     st.setProperty('--topo-tx', topoTx);
-    st.setProperty('--topo-tx2', !topo ? '#5f6975' : topoTx === '#ffffff' ? 'rgba(255,255,255,.72)' : 'rgba(16,21,28,.68)');
-    st.setProperty('--topo-linha', topo ? 'transparent' : '#dde2e8');
+    st.setProperty('--topo-tx2', !topo ? (esc ? '#98a3ae' : '#5f6975') : topoTx === '#ffffff' ? 'rgba(255,255,255,.72)' : 'rgba(16,21,28,.68)');
+    st.setProperty('--topo-linha', topo ? 'transparent' : esc ? '#2c353f' : '#dde2e8');
     // botão "Chegou carro": com topo escuro fica preto com o círculo na cor da marca
-    st.setProperty('--chegou-bg', m.topo === 'escuro' ? '#10151c' : cor);
-    st.setProperty('--chegou-tx', m.topo === 'escuro' ? '#ffffff' : U.textoSobre(cor));
-    st.setProperty('--chegou-ic', m.topo === 'escuro' ? cor : 'rgba(255,255,255,.22)');
-    st.setProperty('--chegou-ic-tx', m.topo === 'escuro' ? U.textoSobre(cor) : 'currentColor');
-    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.content = topo || cor;
+    // (na aparência escura o fundo já é preto: o botão volta para a cor da marca, para se destacar)
+    const preto = m.topo === 'escuro' && !esc;
+    st.setProperty('--chegou-bg', preto ? '#10151c' : cor);
+    st.setProperty('--chegou-tx', preto ? '#ffffff' : U.textoSobre(cor));
+    st.setProperty('--chegou-ic', preto ? cor : 'rgba(255,255,255,.22)');
+    st.setProperty('--chegou-ic-tx', preto ? U.textoSobre(cor) : 'currentColor');
+    const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.content = topo || (esc ? sup : cor);
     document.title = nome;
     const at = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (at) at.content = nome;
     if (Store.s && Store.s.lava.id && !DEMO) { try { localStorage.setItem('lr.marca', JSON.stringify({ ...m, nome, slug: Store.s.lava.slug })); } catch (e) {} }
   };
+  // ---------------- aparência clara / escura (cada aparelho escolhe a sua) ----------------
+  App.escuro = () => document.documentElement.getAttribute('data-tema') === 'escuro';
+  App.aplicarTema = (t) => {
+    if (t) Store.pref('tema', t);
+    t = Store.pref('tema') || 'claro';
+    const esc = t === 'escuro' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    if (esc) document.documentElement.setAttribute('data-tema', 'escuro'); else document.documentElement.removeAttribute('data-tema');
+    App.aplicarMarca();
+  };
+  App.temaHtml = () => {
+    const t = Store.pref('tema') || 'claro';
+    return `<div class="tema-sel"><span>${U.icon('lua')} Aparência</span><div class="seg seg-g" data-tema-sel>${[['claro', 'Clara'], ['escuro', 'Escura'], ['auto', 'Automática']].map(([id, n]) => `<button type="button" data-tema="${id}" class="${t === id ? 'ativo' : ''}">${n}</button>`).join('')}</div></div>`;
+  };
+  App.ligarTema = (el) => {
+    const caixa = el.querySelector('[data-tema-sel]'); if (!caixa) return;
+    caixa.onclick = (e) => { const b = e.target.closest('[data-tema]'); if (!b) return; App.aplicarTema(b.dataset.tema); caixa.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); };
+  };
+  try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => App.aplicarTema()); } catch (e) {}
   const lerMarca = () => { try { return JSON.parse(localStorage.getItem('lr.marca') || 'null'); } catch (e) { return null; } };
   App.logoHtml = (m, nome, cls) => (m && m.logo
     ? `<img class="logo ${cls || ''}" src="${U.esc(m.logo)}" alt="${U.esc(nome)}">`
@@ -269,8 +290,8 @@
       html: `<div class="lista-menu">
         ${u.perfil === 'funcionario' ? `<a href="#/agenda" data-fechar>${U.icon('calendario')}<span>Agenda</span></a><a href="#/clientes" data-fechar>${U.icon('pessoas')}<span>Clientes</span></a><a href="#/ajuda" data-fechar>${U.icon('ajuda')}<span>Como usar</span></a><a href="#/ajuda/instalar" data-fechar>${U.icon('celular')}<span>Instalar no celular</span></a>` : ''}
         <button type="button" id="mSair">${U.icon('sair')}<span>Sair deste aparelho</span></button>
-      </div>`,
-      aoAbrir: (el, fechar) => { el.querySelector('#mSair').onclick = () => { fechar(); App.sair(); }; }
+      </div>${App.temaHtml()}`,
+      aoAbrir: (el, fechar) => { el.querySelector('#mSair').onclick = () => { fechar(); App.sair(); }; App.ligarTema(el); }
     });
   }
 
@@ -282,8 +303,9 @@
         ${MENU.filter((x) => x.mais).map((x) => `<a href="#/${x.r}">${U.icon(x.ic)}<span>${x.txt}</span>${U.icon('seta', 'fim')}</a>`).join('')}
         <a href="#/balcao">${U.icon('carro')}<span>Tela do funcionário (balcão)</span>${U.icon('seta', 'fim')}</a>
         <button type="button" id="maisSair">${U.icon('sair')}<span>Sair deste aparelho</span></button>
-      </div><p class="mudo centro pequeno">${U.esc(App.user.nome)} · ${U.esc(DB.lava().nome)}</p>`;
+      </div>${App.temaHtml()}<p class="mudo centro pequeno">${U.esc(App.user.nome)} · ${U.esc(DB.lava().nome)} · versão ${(window.LAVA_CFG || {}).versao || ''}</p>`;
       el.querySelector('#maisSair').onclick = App.sair;
+      App.ligarTema(el);
     }
   };
 

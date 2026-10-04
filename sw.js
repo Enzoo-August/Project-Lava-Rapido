@@ -4,7 +4,7 @@
    Estratégia: arquivos do app → rede primeiro (sempre pega a versão nova);
    biblioteca externa (Supabase) → cache primeiro.
    Os dados do banco NUNCA passam por aqui: vão sempre direto para a nuvem. */
-const CACHE = 'lava-rapido-v2';
+const CACHE = 'lava-rapido-v3';
 const BASE = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/config.js', './js/util.js', './js/catalogo.js', './js/store.js', './js/demo.js', './js/nuvem.js', './js/db.js', './js/app.js',

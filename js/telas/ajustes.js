@@ -257,7 +257,9 @@
         return TELAS[args[0]](el);
       }
       el.innerHTML = `<div class="lista-menu solta">${SECOES.map(([id, ic, t, sub]) => `<a href="#/ajustes/${id}">${U.icon(ic)}<span>${t}<small>${sub}</small></span>${U.icon('seta', 'fim')}</a>`).join('')}</div>
+        ${App.temaHtml()}
         <p class="mudo centro pequeno">Endereço do seu sistema: <b>${U.esc(location.origin + location.pathname)}${DEMO ? '' : '?l=' + U.esc(DB.lava().slug)}</b></p>`;
+      App.ligarTema(el);
     }
   };
 })();

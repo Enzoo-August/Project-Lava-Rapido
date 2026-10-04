@@ -390,9 +390,9 @@ begin
   if length(coalesce(p_senha, '')) < 6 then raise exception 'A senha precisa ter 6 caracteres ou mais'; end if;
   if length(trim(coalesce(p_nome, ''))) < 2 then raise exception 'Informe o nome'; end if;
   v_email := v_login || '@lava.local';
-  if exists (select 1 from public.perfis where login = v_login) or exists (select 1 from auth.users where lower(email) = v_email) then
-    raise exception 'Esse usuário já existe. Escolha outro.';
-  end if;
+  if exists (select 1 from public.perfis where login = v_login) then raise exception 'Esse usuário já existe. Escolha outro.'; end if;
+  -- login que ficou sem cadastro de acesso (órfão) é substituído, em vez de travar o nome para sempre
+  delete from auth.users u where lower(u.email) = v_email and not exists (select 1 from public.perfis p where p.user_id = u.id);
   insert into auth.users (instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
                           raw_app_meta_data, raw_user_meta_data, created_at, updated_at,
                           confirmation_token, recovery_token, email_change_token_new, email_change)
@@ -560,3 +560,23 @@ begin
 end $$;
 revoke all on function public.admin_criar_acesso(uuid, text, text, text, text) from public, anon, authenticated;
 grant execute on function public.admin_criar_acesso(uuid, text, text, text, text) to authenticated;
+
+-- =====================================================================
+-- Versão 3 (04/10/2026): carro que fica vários dias e login sem cadastro
+-- =====================================================================
+-- Funcionário: além do pátio e do que chegou nas últimas 36 h, enxerga o que foi ENTREGUE ou
+-- CANCELADO nas últimas 36 h (antes, entregar um carro que entrou há dias era recusado pelo banco).
+drop policy if exists ver on public.atendimentos;
+drop policy if exists editar on public.atendimentos;
+create policy ver on public.atendimentos for select to authenticated
+  using (lava_id = (select public.meu_lava())
+         and ((select public.eh_dono()) or status in ('aguardando', 'lavando', 'pronto')
+              or greatest(entrada_em, coalesce(entregue_em, entrada_em), coalesce(cancelado_em, entrada_em)) > now() - interval '36 hours'));
+create policy editar on public.atendimentos for update to authenticated
+  using (lava_id = (select public.meu_lava())
+         and ((select public.eh_dono()) or status in ('aguardando', 'lavando', 'pronto')
+              or greatest(entrada_em, coalesce(entregue_em, entrada_em), coalesce(cancelado_em, entrada_em)) > now() - interval '36 hours'))
+  with check (lava_id = (select public.meu_lava()) and (select public.lava_ativo()));
+create index if not exists atend_lava_entregue on public.atendimentos(lava_id, entregue_em);
+
+-- (novo_usuario, mais acima, já substitui um login que ficou sem cadastro de acesso.)

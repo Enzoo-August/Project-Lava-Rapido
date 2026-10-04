@@ -58,7 +58,7 @@
 
       const lista = await DB.periodo(mes, fim);
       const corpo = el.querySelector('#fCorpo'); if (!corpo || minha !== vez) return;
-      const r = An.resumo(lista);
+      const r = An.resumo(lista, mes, fim);
       const desp = DB.despesasDe(mes, fim).sort((a, b) => (a.data > b.data ? -1 : 1));
       const saiu = desp.reduce((t, d) => t + (Number(d.valor) || 0), 0), sobra = r.faturamento - saiu;
       const porCat = new Map(); desp.forEach((d) => porCat.set(d.categoria || 'Outros', (porCat.get(d.categoria || 'Outros') || 0) + Number(d.valor)));
