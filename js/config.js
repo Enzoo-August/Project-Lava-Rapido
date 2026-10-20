@@ -14,7 +14,10 @@ window.LAVA_CFG = {
     appId: '1:95361363863:web:af7c5ef9786fdfd02a1ed2'
   },
   dominioLogin: 'lava.local',
+  // endereço próprio de cada lava (abre direto com a marca dele, sem precisar de ?l=)
+  sites: { 'agaragemz.web.app': 'garagem-z', 'agaragemz.firebaseapp.com': 'garagem-z' },
+  sitePrincipal: 'https://lava-rapido-enzo.web.app',
   // WhatsApp de quem dá suporte ao sistema (aparece na Ajuda e no aviso de assinatura). Só números, com DDD.
   suporte: '',
-  versao: 6
+  versao: 7
 };

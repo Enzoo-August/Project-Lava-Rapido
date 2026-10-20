@@ -471,3 +471,9 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 .alerta-aviso > div { display: grid; flex: 1; min-width: 0; } .alerta-aviso small { color: var(--mudo); font-size: 13px; }
 .lista-menu .aviso-atraso .ic:first-child { color: #c62828; }
 .pergunte { margin: -4px 0 6px; font-style: italic; }
+
+/* nada de cursor de digitar nem texto selecionável fora dos campos (o app não é um documento) */
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, select, [contenteditable="true"], .selecionavel { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
+body *:not(input):not(textarea):not(select) { caret-color: transparent; }
+.tela:focus, main:focus { outline: none; }

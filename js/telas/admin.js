@@ -5,7 +5,7 @@
    ========================================================= */
 (function () {
   const slugDe = (nome) => U.norm(nome).replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
-  const enderecoDe = (slug) => location.origin + location.pathname + '?l=' + slug;
+  const enderecoDe = (slug) => App.enderecoDe(slug);
 
   const formNovo = () => U.modal({
     titulo: 'Novo lava-rápido', largo: true,

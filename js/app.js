@@ -63,6 +63,12 @@
     caixa.onclick = (e) => { const b = e.target.closest('[data-tema]'); if (!b) return; App.aplicarTema(b.dataset.tema); caixa.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); };
   };
   try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => App.aplicarTema()); } catch (e) {}
+  // lava ligado ao endereço (ex.: agaragemz.web.app → garagem-z)
+  const slugDoSite = () => ((window.LAVA_CFG || {}).sites || {})[location.hostname] || '';
+  App.enderecoDe = (slug) => {
+    const cfg = window.LAVA_CFG || {}, host = Object.keys(cfg.sites || {}).find((h) => cfg.sites[h] === slug && h.endsWith('.web.app'));
+    return host ? 'https://' + host : (cfg.sitePrincipal || location.origin + location.pathname.replace(/\/$/, '')) + '/?l=' + slug;
+  };
   const lerMarca = () => { try { return JSON.parse(localStorage.getItem('lr.marca') || 'null'); } catch (e) { return null; } };
   App.logoHtml = (m, nome, cls) => (m && m.logo
     ? `<img class="logo ${cls || ''}" src="${U.esc(m.logo)}" alt="${U.esc(nome)}">`
@@ -99,7 +105,7 @@
     if (DEMO) { m = Store.s.lava.marca; nome = Store.s.lava.nome; }
     else if (Nuvem.sb) {
       try {
-        const slug = params.get('l') || m.slug;
+        const slug = params.get('l') || slugDoSite() || m.slug;
         if (slug) { const r = await Nuvem.marca(slug); if (r) { m = { ...r.marca, slug: r.slug }; nome = r.nome; try { localStorage.setItem('lr.marca', JSON.stringify({ ...m, nome })); } catch (e) {} } }
         primeiro = !(await Nuvem.haAdmin());
       } catch (e) { erroInicial = erroInicial || 'Sem internet. Verifique o sinal e tente de novo.'; }
@@ -144,7 +150,9 @@
       <button class="btn btn-marca btn-g btn-bloco" type="submit">Entrar</button>
       <p class="mudo centro pequeno">Este aparelho fica conectado: só precisa entrar uma vez.</p>
       <a class="link centro" href="?demo=1">Ver uma demonstração</a>
+      ${m.slug && !slugDoSite() && !params.get('l') ? `<button type="button" class="link centro" id="outroLava">Não é ${U.esc(nome)}? Entrar com outro usuário</button>` : ''}
     </form>`;
+    const ol = el.querySelector('#outroLava'); if (ol) ol.onclick = () => { try { localStorage.removeItem('lr.marca'); } catch (x) {} location.reload(); };
     el.querySelector('form').onsubmit = async (e) => {
       e.preventDefault();
       const f = U.campos(e.target), b = e.target.querySelector('button[type=submit]'), err = e.target.querySelector('.erro');
