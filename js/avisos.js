@@ -16,12 +16,14 @@
   A.somLigado = () => Store.pref('avisos.som') !== false;
 
   // o navegador só deixa tocar som depois que a pessoa tocou na tela uma vez
-  const destravar = () => { try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); } catch (e) {} };
+  let tocou = false;   // vibrar/tocar só depois do primeiro toque (o navegador exige)
+  const destravar = () => { tocou = true; try { ctx = ctx || new (window.AudioContext || window.webkitAudioContext)(); if (ctx.state === 'suspended') ctx.resume(); } catch (e) {} };
   document.addEventListener('pointerdown', destravar, { passive: true });
 
   A.tocar = () => {
-    if (navigator.vibrate) { try { navigator.vibrate([120, 60, 120]); } catch (e) {} }
+    if (navigator.vibrate && tocou) { try { navigator.vibrate([120, 60, 120]); } catch (e) {} }
     if (!A.somLigado()) return;
+    if (!tocou) return;
     destravar(); if (!ctx) return;
     const t = ctx.currentTime;
     [[880, 0], [1320, 0.18]].forEach(([f, d]) => {

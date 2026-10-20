@@ -36,10 +36,13 @@
       <label class="campo"><span>Perfil</span><select name="perfil"><option value="dono">Dono (vê tudo)</option><option value="funcionario">Funcionário (só o balcão)</option></select></label>`,
     acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Criar', cls: 'btn-marca', aoTocar: async (el) => { const f = U.campos(el); await Nuvem.adminCriarAcesso(l.id, f); return f; } }]
   });
+  // no plano grátis do Firebase a senha só é trocada pela própria pessoa: quem esqueceu ganha um acesso novo
   const formSenha = (p) => U.modal({
-    titulo: 'Nova senha · ' + p.nome,
-    html: `<p class="mudo">Usuário: <b>${U.esc(p.login)}</b></p><label class="campo"><span>Nova senha (6 ou mais)</span><input name="senha" type="text" autocapitalize="none" autocomplete="off"></label>`,
-    acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Trocar', cls: 'btn-marca', aoTocar: async (el) => { await Nuvem.trocarSenha(p.user_id, U.campos(el).senha); return true; } }]
+    titulo: 'Senha · ' + p.nome,
+    html: `<p class="txt">Usuário: <b>${U.esc(p.login)}</b></p>
+      <p class="mudo">A senha é trocada pela própria pessoa, depois de entrar: <b>Ajustes → Minha senha</b>.</p>
+      <p class="mudo">Se ela esqueceu a senha, crie um acesso novo (com outro usuário) e peça ao dono para bloquear o antigo em Ajustes → Equipe e acessos.</p>`,
+    acoes: [{ txt: 'Entendi', cls: 'btn-marca', valor: false }]
   });
   const pintarAcessos = async (el, l) => {
     const caixa = el.querySelector('#aAcessos');
@@ -80,8 +83,8 @@
       el.innerHTML = `
         <div class="kpis tres">
           <div class="kpi"><span>Lava-rápidos</span><b>${lavas.length}</b><small class="delta">${ativos} ativo${ativos === 1 ? '' : 's'}</small></div>
-          <div class="kpi"><span>Carros (30 dias)</span><b>${lavas.reduce((t, l) => t + Number(l.carros_30d), 0)}</b><small class="delta">em todos os lavas</small></div>
-          <div class="kpi"><span>Clientes cadastrados</span><b>${lavas.reduce((t, l) => t + Number(l.clientes), 0)}</b><small class="delta">em todos os lavas</small></div>
+          <div class="kpi"><span>Sem login de dono</span><b>${lavas.filter((l) => !l.dono).length}</b><small class="delta">criar o acesso</small></div>
+          <div class="kpi"><span>Mensalidade vencida</span><b>${lavas.filter((l) => l.pago_ate && U.diasDesde(U.deDia(l.pago_ate)) > 0).length}</b><small class="delta">conferir pagamento</small></div>
         </div>
         <button class="btn btn-marca btn-g btn-bloco" id="aNovo">${U.icon('mais')}<span>Novo lava-rápido</span></button>
         <div class="lista">${lavas.map((l) => {
@@ -89,7 +92,7 @@
           const sit = !l.ativo ? '<span class="tag cancelado">suspenso</span>' : venc != null && venc > 0 ? '<span class="tag aguardando">vencido</span>' : '<span class="tag pronto">em dia</span>';
           return `<button type="button" class="linha" data-l="${l.id}">
             <span class="linha-txt"><b>${U.esc(l.nome)}</b>
-              <small>${l.dono ? U.esc(l.dono) : '<span class="alerta-txt">sem login de dono</span>'} · ${l.carros_30d} carros em 30 dias · ${l.clientes} clientes${l.ultimo_movimento ? ' · último ' + U.haQuanto(l.ultimo_movimento) : ' · nunca usou'}</small>
+              <small>${l.dono ? U.esc(l.dono) : '<span class="alerta-txt">sem login de dono</span>'}${l.criado_em ? ' · desde ' + U.dataBR(l.criado_em) : ''}</small>
               <small>${U.esc(l.plano)}${l.pago_ate ? ' · pago até ' + U.dataBR(l.pago_ate) : ''} · ?l=${U.esc(l.slug)}</small></span>
             ${sit}</button>`;
         }).join('') || '<p class="mudo centro">Nenhum lava-rápido cadastrado ainda.</p>'}</div>

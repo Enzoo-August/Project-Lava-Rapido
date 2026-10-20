@@ -1,0 +1,85 @@
+rules_version = '2';
+// =====================================================================
+//  Lava Rápido — regras de segurança do banco (Firestore)
+//  UM banco para todos os lava-rápidos. Cada um só enxerga o que é dele.
+//  Perfis: admin (quem vende o sistema), dono, funcionario.
+//  Nada é apagado pelo aplicativo: não existe permissão de "delete".
+// =====================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function logado() { return request.auth != null; }
+    function caminhoEu() { return /databases/$(database)/documents/usuarios/$(request.auth.uid); }
+    function eu() { return get(caminhoEu()).data; }
+    function temPerfil() { return logado() && exists(caminhoEu()) && eu().ativo == true; }
+    function admin() { return temPerfil() && eu().perfil == 'admin'; }
+    function membro(l) { return temPerfil() && eu().lava_id == l; }
+    function dono(l) { return membro(l) && eu().perfil == 'dono'; }
+    // assinatura em dia: lava suspenso continua lendo, mas não grava
+    function lavaAtivo(l) { return get(/databases/$(database)/documents/lavas/$(l)).data.ativo == true; }
+    function soMuda(campos) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(campos); }
+    function perfilDeEquipe() { return request.resource.data.perfil in ['dono', 'funcionario']; }
+
+    // primeiro acesso: o administrador é criado uma única vez
+    match /sistema/admin {
+      allow get: if true;
+      allow create: if logado() && request.resource.data.keys().hasOnly(['uid']) && request.resource.data.uid == request.auth.uid;
+    }
+
+    // nome, logo e cor de cada lava (aparecem na tela de entrada, antes do login)
+    match /marcas/{slug} {
+      allow get: if true;
+      allow create: if admin() && request.resource.data.slug == slug;
+      allow update: if admin() || (dono(resource.data.lava_id) && soMuda(['nome', 'marca', 'atualizado_em']));
+    }
+
+    // quem pode entrar e o que pode fazer
+    match /usuarios/{uid} {
+      allow get: if logado() && (request.auth.uid == uid || admin() || (temPerfil() && resource.data.lava_id == eu().lava_id));
+      allow list: if admin() || (temPerfil() && resource.data.lava_id == eu().lava_id);
+      allow create: if (uid == request.auth.uid && request.resource.data.perfil == 'admin'
+                        && getAfter(/databases/$(database)/documents/sistema/admin).data.uid == request.auth.uid)
+                    || (admin() && perfilDeEquipe() && exists(/databases/$(database)/documents/lavas/$(request.resource.data.lava_id)))
+                    || (dono(request.resource.data.lava_id) && perfilDeEquipe());
+      allow update: if (admin() && resource.data.perfil != 'admin' && perfilDeEquipe() && request.resource.data.lava_id == resource.data.lava_id)
+                    || (dono(resource.data.lava_id) && resource.data.perfil != 'admin' && perfilDeEquipe() && soMuda(['nome', 'perfil', 'ativo', 'atualizado_em']));
+    }
+
+    match /lavas/{l} {
+      allow get: if membro(l) || admin();
+      allow list: if admin();
+      allow create: if admin() && request.resource.data.id == l;
+      // o dono muda nome, marca e configurações; assinatura (ativo, plano, pago até) só o admin
+      allow update: if admin() || (dono(l) && soMuda(['nome', 'marca', 'config', 'atualizado_em']));
+
+      // serviços e preços: todos do lava veem, só o dono muda (o admin cria os de exemplo)
+      match /servicos/{id} {
+        allow read: if membro(l) || admin();
+        allow create: if admin() || (dono(l) && lavaAtivo(l));
+        allow update: if dono(l) && lavaAtivo(l);
+      }
+      // despesas: só o dono
+      match /despesas/{id} {
+        allow read: if dono(l);
+        allow create, update: if dono(l) && lavaAtivo(l);
+      }
+      // ficha do dia (número sem repetir entre aparelhos)
+      match /contadores/{dia} {
+        allow read, write: if membro(l) && lavaAtivo(l);
+      }
+      // o dia a dia: todos do lava veem e registram
+      match /{tabela}/{id} {
+        allow read: if membro(l) && tabela in ['clientes', 'veiculos', 'atendimentos', 'agendamentos'];
+        allow create, update: if membro(l) && lavaAtivo(l) && tabela in ['clientes', 'veiculos', 'atendimentos', 'agendamentos']
+                              && request.resource.data.lava_id == l;
+      }
+    }
+
+    // página que o cliente do lava abre pelo link do WhatsApp (sem login, só com o código do link)
+    match /acompanhar/{token} {
+      allow get: if true;
+      allow create: if membro(request.resource.data.lava_id);
+      allow update: if membro(resource.data.lava_id) && request.resource.data.lava_id == resource.data.lava_id;
+    }
+  }
+}

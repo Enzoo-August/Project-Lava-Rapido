@@ -2,16 +2,16 @@
    - permite "instalar" como aplicativo (celular e computador)
    - abre mesmo sem internet (usa a última versão guardada)
    Estratégia: arquivos do app → rede primeiro (sempre pega a versão nova);
-   biblioteca externa (Supabase) → cache primeiro.
+   biblioteca externa (Firebase) → cache primeiro.
    Os dados do banco NUNCA passam por aqui: vão sempre direto para a nuvem. */
-const CACHE = 'lava-rapido-v5';
+const CACHE = 'lava-rapido-v6';
 const BASE = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/config.js', './js/util.js', './js/catalogo.js', './js/store.js', './js/demo.js', './js/nuvem.js', './js/db.js', './js/avisos.js', './js/app.js',
   './js/telas/balcao.js', './js/telas/entrada.js', './js/telas/patio.js', './js/telas/clientes.js', './js/telas/inicio.js',
   './js/telas/resultados.js', './js/telas/financeiro.js', './js/telas/ajustes.js', './js/telas/admin.js', './js/telas/agenda.js', './js/telas/ajuda.js',
   './c/index.html', './assets/icons/icon-192.png', './assets/icons/apple-touch-icon.png',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js'
+  ...['app', 'auth', 'firestore'].map((n) => `https://www.gstatic.com/firebasejs/10.14.1/firebase-${n}-compat.js`)
 ];
 
 self.addEventListener('install', (e) => {
@@ -30,7 +30,7 @@ self.addEventListener('fetch', (e) => {
     // rede primeiro; sem internet, usa o que está guardado
     e.respondWith(fetch(req).then((r) => { if (r.ok) { const cp = r.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); } return r; })
       .catch(() => caches.match(req, { ignoreSearch: true }).then((r) => r || (req.mode === 'navigate' ? caches.match(url.pathname.includes('/c/') ? './c/index.html' : './index.html') : Response.error()))));
-  } else if (url.hostname === 'cdn.jsdelivr.net') {
+  } else if (url.hostname === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
     e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((r) => { if (r.ok || r.type === 'opaque') { const cp = r.clone(); caches.open(CACHE).then((c) => c.put(req, cp)); } return r; })));
   }
 });

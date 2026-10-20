@@ -114,13 +114,13 @@ Conferências feitas direto no banco, todas aprovadas: 46 em 02/10/2026 e, em 04
 
 | Item | Hoje | Quando cresce |
 |---|---|---|
-| Hospedagem do site (GitHub Pages) | R$ 0, publicações ilimitadas | R$ 0 |
-| Banco (Supabase, plano grátis) | R$ 0 | Pro: US$ 25/mês para todos os lavas juntos |
+| Hospedagem do site (Firebase Hosting) | R$ 0 (10 GB de tráfego por mês) | R$ 0 |
+| Banco (Firebase Firestore, plano grátis Spark) | R$ 0: 50 mil leituras e 20 mil gravações por dia, 1 GB | plano Blaze (paga pelo uso) só se passar disso |
 | Domínio próprio (opcional) | — | cerca de R$ 40/ano |
 
 Limites do plano grátis do banco: 500 MB, sem cópia de segurança automática, e o projeto pausa depois de cerca de 7 dias sem nenhum uso. Com lavas usando todo dia não pausa. **Antes de ter clientes pagando, vale passar para o Pro**, por causa da cópia de segurança diária.
 
-Cada organização grátis do Supabase tem 2 projetos ativos: `painel-upgrade` e `lava-rapido` já ocupam os dois.
+Desde 20/10/2026 o banco é o Firebase (o Supabase pausava sem uso e só permitia 2 projetos grátis). No Firebase grátis: o banco não pausa; a senha só é trocada pela própria pessoa (quem esqueceu ganha um acesso novo); o funcionário enxerga o histórico de atendimentos do lava (a tela não mostra, mas o banco permite); a ficha do dia é numerada por um contador no banco quando há internet.
 
 ## Decisões tomadas
 

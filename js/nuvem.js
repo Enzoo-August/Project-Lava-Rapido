@@ -1,282 +1,300 @@
 /* =========================================================
-   Nuvem (Supabase) — login real e dados compartilhados
+   Nuvem (Firebase) — login real e dados compartilhados
 
    Como funciona:
-   - Ao entrar, o app usa a cópia guardada no aparelho (abre na hora)
-     e busca no banco o que mudou.
-   - Tudo que a pessoa faz vale na tela imediatamente e entra numa
-     FILA. A fila é enviada ao banco em ordem; sem internet ela
-     fica guardada no aparelho e segue sozinha quando o sinal volta.
-   - A cada poucos segundos busca o que os outros aparelhos fizeram.
-   - Nada é apagado do banco pelo app (só desativado/cancelado).
+   - Login por usuário e senha (o e-mail é "usuario@lava.local").
+   - O Firestore fica ouvindo o banco: o que outro aparelho muda
+     chega sozinho, na hora.
+   - Sem internet: o Firestore guarda as alterações no aparelho e
+     envia sozinho quando o sinal volta (fila embutida).
+   - Nada é apagado pelo aplicativo (só cancelado/desativado).
+   - Quem pode o quê fica nas regras do banco (firestore.rules).
+
+   As telas usam só as funções "N.xxx" daqui; o Firebase em si fica
+   num "adaptador" (nos testes, troca-se por um banco simulado).
    ========================================================= */
 (function () {
   const CFG = window.LAVA_CFG || {};
-  const N = { ativo: Store.modo === 'nuvem', sb: null, fila: [], falhas: [], ultimo: {}, enviando: false, puxando: false, erro: null, pronto: false };
+  const N = { ativo: Store.modo === 'nuvem', fila: [], falhas: [], erro: null, pronto: false, sb: null };
   window.Nuvem = N;
   if (!N.ativo) { N.guardar = () => {}; N.pendentes = () => 0; return; }
 
-  const LIB = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js';
+  const VERSAO_SDK = '10.14.1';
+  const LIBS = ['app', 'auth', 'firestore'].map((n) => `https://www.gstatic.com/firebasejs/${VERSAO_SDK}/firebase-${n}-compat.js`);
   const CACHE = 'lr.cache';
-  const PAG = 1000;
+  const ABERTOS = ['aguardando', 'lavando', 'pronto'];
+  let A = null;                       // adaptador
+  let ouvintes = [];
 
-  // colunas que o aparelho envia (o resto é calculado pelo banco)
-  const COLS = {
-    lavas: ['nome', 'marca', 'config'],
-    servicos: ['id', 'lava_id', 'nome', 'precos', 'minutos', 'ordem', 'ativo'],
-    clientes: ['id', 'lava_id', 'nome', 'telefone', 'obs', 'avaliacao_pedida_em', 'ativo'],
-    veiculos: ['lava_id', 'placa', 'cliente_id', 'marca', 'modelo', 'cor', 'porte', 'obs', 'ativo'],
-    atendimentos: ['id', 'lava_id', 'placa', 'veiculo', 'cliente_id', 'servicos', 'valor', 'desconto', 'pontos_usados', 'premio', 'status', 'pagamento',
-      'previsao', 'obs', 'token', 'entrada_em', 'inicio_em', 'pronto_em', 'entregue_em', 'cancelado_em', 'avisado_em', 'atendente_nome', 'lavador'],
-    agendamentos: ['id', 'lava_id', 'cliente_id', 'nome', 'telefone', 'placa', 'veiculo', 'servico', 'valor', 'quando', 'obs', 'status', 'atendimento_id', 'criado_por'],
-    despesas: ['id', 'lava_id', 'data', 'categoria', 'descricao', 'valor', 'excluido']
+  const agoraIso = () => new Date().toISOString();
+  const limpo = (o) => JSON.parse(JSON.stringify(o));   // o Firestore não aceita "undefined"
+  const lavaId = () => (App.user || {}).lava_id;
+
+  // ---------------- mensagens de erro em português ----------------
+  const MSG = {
+    'auth/invalid-credential': 'Usuário ou senha incorretos.', 'auth/wrong-password': 'Usuário ou senha incorretos.', 'auth/user-not-found': 'Usuário ou senha incorretos.',
+    'auth/invalid-email': 'Usuário inválido: use letras, números, ponto ou traço.', 'auth/too-many-requests': 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.',
+    'auth/network-request-failed': 'Sem internet. Verifique o sinal e tente de novo.', 'auth/email-already-in-use': 'Esse usuário já existe. Escolha outro.',
+    'auth/weak-password': 'A senha precisa ter 6 caracteres ou mais.', 'auth/requires-recent-login': 'Por segurança, saia e entre de novo antes de trocar a senha.',
+    'auth/operation-not-allowed': 'O login por usuário e senha ainda não foi ligado no Firebase (Authentication → E-mail/senha).',
+    'permission-denied': 'Este acesso não tem permissão para isso.', unavailable: 'Sem internet. Verifique o sinal e tente de novo.'
   };
-  const CONFLITO = { servicos: 'id', clientes: 'id', veiculos: 'lava_id,placa', atendimentos: 'id', agendamentos: 'id', despesas: 'id' };
-  const TABELAS = ['servicos', 'clientes', 'veiculos', 'atendimentos', 'agendamentos', 'despesas'];
+  const erroTxt = (e) => (e && (MSG[e.code] || e.message)) || String(e);
+  N.erroTxt = erroTxt;
 
-  const erroTxt = (e) => (e && (e.message || e.error_description || e.details)) || String(e);
-  const ok = (r) => { if (r.error) throw r.error; return r.data; };
-  // erro definitivo = o banco recusou (permissão, dado inválido); o resto (sem sinal, servidor fora, sessão vencida) tenta de novo
-  const definitivo = (e) => !!(e && e.code && /^(22|23|42|P0|PGRST1|PGRST2)/.test(e.code) && e.code !== 'PGRST301');
+  // ---------------- adaptador do Firebase de verdade ----------------
+  const carregar = (src) => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Sem internet para conectar. Verifique o sinal e tente de novo.')); document.head.appendChild(s); });
+  const adaptadorFirebase = () => {
+    const app = firebase.initializeApp(CFG.firebase);
+    const auth = app.auth(), db = app.firestore();
+    try { db.enablePersistence({ synchronizeTabs: true }).catch(() => {}); } catch (e) {}
+    const ref = (p) => db.doc(p);
+    const montar = (col, filtros) => { let q = db.collection(col); for (const [c, op, v] of filtros || []) q = q.where(c, op, v); return q; };
+    // logins da equipe são criados numa segunda "sessão", para quem está cadastrando continuar conectado
+    const segunda = () => firebase.apps.find((a) => a.name === 'cadastro') || firebase.initializeApp(CFG.firebase, 'cadastro');
+    return {
+      entrar: (email, senha) => auth.signInWithEmailAndPassword(email, senha).then((r) => r.user.uid),
+      sair: () => auth.signOut(),
+      uidAtual: () => new Promise((res) => { const u = auth.onAuthStateChanged((x) => { u(); res(x ? x.uid : null); }); }),
+      criarLoginProprio: (email, senha) => auth.createUserWithEmailAndPassword(email, senha).then((r) => r.user.uid),
+      criarLogin: async (email, senha) => { const s = segunda().auth(); const r = await s.createUserWithEmailAndPassword(email, senha); const uid = r.user.uid; await s.signOut(); return uid; },
+      trocarMinhaSenha: (senha) => auth.currentUser.updatePassword(senha),
+      ler: async (p) => { const s = await ref(p).get(); return s.exists ? s.data() : null; },
+      gravar: (p, dados) => ref(p).set(dados, { merge: true }),
+      lote: (ops) => { const b = db.batch(); for (const [p, d] of ops) b.set(ref(p), d, { merge: true }); return b.commit(); },
+      buscar: async (col, filtros) => (await montar(col, filtros).get()).docs.map((d) => d.data()),
+      ouvir: (col, filtros, cb, erro) => montar(col, filtros).onSnapshot((s) => cb(s.docChanges().filter((c) => c.type !== 'removed').map((c) => c.doc.data())), erro),
+      ouvirDoc: (p, cb, erro) => ref(p).onSnapshot((s) => { if (s.exists) cb(s.data()); }, erro),
+      proximoNumero: (p) => db.runTransaction(async (t) => { const s = await t.get(ref(p)); const n = (s.exists ? s.data().n || 0 : 0) + 1; t.set(ref(p), { n }); return n; })
+    };
+  };
 
-  // ---------------- conexão ----------------
-  const carregarLib = () => new Promise((res, rej) => {
-    if (window.LAVA_TESTE_SB || (window.supabase && window.supabase.createClient)) return res();   // LAVA_TESTE_SB: banco simulado dos testes
-    const s = document.createElement('script'); s.src = LIB; s.onload = res;
-    s.onerror = () => rej(new Error('Sem internet para conectar. Verifique o sinal e tente de novo.'));
-    document.head.appendChild(s);
-  });
   N.iniciar = async () => {
-    await carregarLib();
-    N.sb = window.LAVA_TESTE_SB || window.supabase.createClient(CFG.url, CFG.chave, { auth: { persistSession: true, autoRefreshToken: true, storageKey: 'lr.auth' } });
-    addEventListener('online', () => { status(); N.agendar(0); });
+    if (N.sb) return;
+    if (window.LAVA_TESTE_API) A = window.LAVA_TESTE_API;      // testes: banco simulado
+    else { if (!window.firebase) for (const l of LIBS) await carregar(l); A = adaptadorFirebase(); }
+    N.sb = A;
+    addEventListener('online', () => status());
     addEventListener('offline', () => status());
-    document.addEventListener('visibilitychange', () => { if (!document.hidden && App.user) { N.agendar(0); N.puxar(); } });
-    // o pátio a cada 8 s; o resto a cada ~1 min
-    let volta = 0;
-    setInterval(() => {
-      if (!App.user || document.hidden) return;
-      volta++;
-      if (N.fila.length) N.enviar();
-      N.puxar(volta % 8 === 0 ? null : volta % 4 === 0 ? ['atendimentos', 'agendamentos'] : ['atendimentos']);
-    }, 8000);
   };
 
+  // ---------------- login ----------------
   N.email = (login) => U.norm(login).replace(/\s+/g, '') + '@' + (CFG.dominioLogin || 'lava.local');
-
+  const loginOk = (l) => /^[a-z0-9._-]{3,30}$/.test(l);
+  const validar = (o) => {
+    const login = U.norm(o.login).replace(/\s+/g, '');
+    if (!loginOk(login)) throw new Error('O usuário deve ter de 3 a 30 letras ou números, sem espaço (pode usar ponto ou traço).');
+    if (String(o.senha || '').length < 6) throw new Error('A senha precisa ter 6 caracteres ou mais.');
+    if (String(o.nome || '').trim().length < 2) throw new Error('Informe o nome.');
+    return login;
+  };
   const paraUser = (p) => ({ id: p.user_id, nome: p.nome, login: p.login, perfil: p.perfil, lava_id: p.lava_id, ativo: p.ativo });
+
   N.usuarioAtual = async () => {
-    const { data } = await N.sb.auth.getSession();
-    const s = data && data.session; if (!s) return null;
+    const uid = await A.uidAtual(); if (!uid) return null;
     try {
-      const p = ok(await N.sb.from('perfis').select('*').eq('user_id', s.user.id).maybeSingle());
+      const p = await A.ler('usuarios/' + uid);
       return p && p.ativo ? paraUser(p) : { semPerfil: true };
     } catch (e) {
-      const c = lerCache();   // sem internet: usa o último usuário guardado
-      return c && c.user && c.user.id === s.user.id ? c.user : null;
+      const c = lerCache(); return c && c.user && c.user.id === uid ? c.user : null;   // sem internet
     }
   };
   N.entrar = async (login, senha) => {
-    const r = await N.sb.auth.signInWithPassword({ email: N.email(login), password: senha });
-    if (r.error) return { erro: /invalid/i.test(r.error.message) ? 'Usuário ou senha incorretos.' : /fetch|network|load failed/i.test(r.error.message) ? 'Sem internet. Verifique o sinal e tente de novo.' : erroTxt(r.error) };
+    try { await A.entrar(N.email(login), senha); } catch (e) { return { erro: erroTxt(e) }; }
     const user = await N.usuarioAtual();
-    if (!user || user.semPerfil) { await N.sb.auth.signOut(); return { erro: 'Este acesso está desativado. Fale com o dono do lava-rápido.' }; }
+    if (!user || user.semPerfil) { await A.sair(); return { erro: 'Este acesso está desativado. Fale com o dono do lava-rápido.' }; }
     return { user };
   };
   N.sair = async () => {
+    parar();
     try { localStorage.removeItem(CACHE); } catch (e) {}
-    N.fila = []; N.falhas = []; N.ultimo = {}; N.pronto = false;
-    try { await N.sb.auth.signOut(); } catch (e) {}
+    N.fila = []; N.falhas = []; N.pronto = false;
+    try { await A.sair(); } catch (e) {}
   };
 
-  // ---------------- funções do banco ----------------
-  const rpc = async (nome, args) => ok(await N.sb.rpc(nome, args));
-  N.marca = (slug) => rpc('marca', { p_slug: slug });
-  N.haAdmin = () => rpc('ha_admin');
-  N.primeiroAdmin = (o) => rpc('primeiro_admin', { p_login: o.login, p_senha: o.senha, p_nome: o.nome });
-  N.criarAcesso = (o) => rpc('criar_acesso', { p_login: o.login, p_senha: o.senha, p_nome: o.nome, p_perfil: o.perfil });
-  N.editarAcesso = (id, o) => rpc('editar_acesso', { p_user: id, p_nome: o.nome, p_perfil: o.perfil, p_ativo: o.ativo });
-  N.trocarSenha = (id, senha) => rpc('trocar_senha_acesso', { p_user: id, p_senha: senha });
-  N.adminLavas = () => rpc('admin_lavas');
-  N.adminCriarLava = (o) => rpc('admin_criar_lava', { p_nome: o.nome, p_slug: o.slug, p_dono_nome: o.dono, p_login: o.login, p_senha: o.senha, p_pago_ate: o.pago_ate || null });
-  N.adminCriarAcesso = (lava, o) => rpc('admin_criar_acesso', { p_lava: lava, p_login: o.login, p_senha: o.senha, p_nome: o.nome, p_perfil: o.perfil });
-  N.adminAcessos = async (lava) => ok(await N.sb.from('perfis').select('*').eq('lava_id', lava).order('nome'));
-  N.adminEditarLava = (id, o) => rpc('admin_editar_lava', { p_id: id, p_nome: o.nome, p_ativo: o.ativo, p_plano: o.plano, p_pago_ate: o.pago_ate || null });
-
-  // ---------------- leitura ----------------
-  const pendente = (t, k) => N.fila.some((op) => op.t === t && op.k === k);
-  const lavaId = () => (App.user || {}).lava_id;
-
-  const buscar = async (t) => {
-    const chave = Store.CHAVE[t], desde = N.ultimo[t];
-    const out = [];
-    for (let i = 0; ; i += PAG) {
-      let q = N.sb.from(t).select('*').eq('lava_id', lavaId());
-      if (desde) q = q.gt('atualizado_em', desde);
-      else if (t === 'atendimentos') { const d = U.somaDias(U.inicioDia(), -2).toISOString(); q = q.or(`status.in.(aguardando,lavando,pronto),entrada_em.gte."${d}",entregue_em.gte."${d}",cancelado_em.gte."${d}"`); }
-      else if (t === 'agendamentos') q = q.gte('quando', U.somaDias(U.inicioDia(), -7).toISOString());
-      else if (t === 'despesas') q = q.gte('data', U.dia(U.somaDias(new Date(), -400)));
-      const rows = ok(await q.order('atualizado_em').order(chave).range(i, i + PAG - 1));
-      out.push(...rows);
-      if (rows.length < PAG) break;
-    }
-    return out;
+  // ---------------- públicas: marca do lava e primeiro acesso ----------------
+  N.marca = async (slug) => { const m = await A.ler('marcas/' + U.norm(slug)); return m ? { nome: m.nome, marca: m.marca || {}, slug: m.slug } : null; };
+  N.haAdmin = async () => !!(await A.ler('sistema/admin'));
+  N.primeiroAdmin = async (o) => {
+    const login = validar(o);
+    if (await N.haAdmin()) throw new Error('O administrador já foi criado.');
+    let uid; try { uid = await A.criarLoginProprio(N.email(login), o.senha); } catch (e) { throw new Error(erroTxt(e)); }
+    await A.lote([['sistema/admin', { uid }], ['usuarios/' + uid, { user_id: uid, lava_id: null, nome: o.nome.trim(), login, perfil: 'admin', ativo: true, criado_em: agoraIso() }]]);
+    return uid;
   };
 
-  // busca o que mudou desde a última vez (so = lista de tabelas; vazio = tudo, incluindo marca e equipe)
-  N.puxar = async (so) => {
-    if (N.puxando || N.enviando || !App.user || !lavaId() || !navigator.onLine) return false;
-    N.puxando = true;
-    let mudou = false;
-    try {
-      if (!so) {
-        if (!pendente('lavas', lavaId())) {
-          const l = ok(await N.sb.from('lavas').select('*').eq('id', lavaId()).maybeSingle());
-          if (l && l.atualizado_em !== Store.s.lava.atualizado_em) { Store.s.lava = l; mudou = true; }
-        }
-        const eq = ok(await N.sb.from('perfis').select('*').eq('lava_id', lavaId()).order('nome'));
-        if (JSON.stringify(eq) !== JSON.stringify(Store.s.equipe)) { Store.s.equipe = eq; Store.reindex(); mudou = true; }
-      }
-      for (const t of so || TABELAS) {
-        if (t === 'despesas' && App.user.perfil !== 'dono') continue;
-        // Primeira carga de atendimentos/despesas traz só o recente. O ponto de partida das próximas buscas
-        // é a última alteração que existe no banco (e não a do que veio), senão a busca seguinte traria o histórico inteiro.
-        let topo = null;
-        if (!N.ultimo[t] && (t === 'atendimentos' || t === 'despesas' || t === 'agendamentos')) {
-          const u = ok(await N.sb.from(t).select('atualizado_em').eq('lava_id', lavaId()).order('atualizado_em', { ascending: false }).limit(1));
-          topo = u.length ? u[0].atualizado_em : null;
-        }
-        const rows = await buscar(t);
-        let ultimo = N.ultimo[t] || '1970-01-01T00:00:00+00:00';
-        for (const r of rows) {
-          if (r.atualizado_em > ultimo) ultimo = r.atualizado_em;
-          if (pendente(t, r[Store.CHAVE[t]])) continue;
-          Store.mesclar(t, r); mudou = true;
-        }
-        N.ultimo[t] = topo || ultimo;
-        // chegou carro novo de outro aparelho: o cliente/veículo dele também é novo → busca já
-        if (t === 'atendimentos' && so && rows.some((r) => !Store.por('veiculos', r.placa) || (r.cliente_id && !Store.por('clientes', r.cliente_id)))) {
-          N.puxando = false; await N.puxar(['clientes', 'veiculos']); N.puxando = true;
-        }
-      }
-      N.erro = null;
-    } catch (e) { N.erro = erroTxt(e); }
-    finally { N.puxando = false; }
-    if (mudou) { Store.rev++; N.guardar(); App.aoMudar(); }
-    status();
-    return mudou;
+  // ---------------- acessos (dono cria os da equipe; admin cria o dono) ----------------
+  const novoAcesso = async (lava, o, perfil) => {
+    const login = validar(o);
+    if (!['dono', 'funcionario'].includes(perfil)) throw new Error('Perfil inválido.');
+    let uid; try { uid = await A.criarLogin(N.email(login), o.senha); } catch (e) { throw new Error(erroTxt(e)); }
+    try { await A.gravar('usuarios/' + uid, { user_id: uid, lava_id: lava, nome: o.nome.trim(), login, perfil, ativo: true, criado_em: agoraIso() }); }
+    catch (e) { throw new Error('O login foi criado, mas não consegui liberar o acesso: ' + erroTxt(e)); }
+    return uid;
+  };
+  N.criarAcesso = (o) => novoAcesso(lavaId(), o, o.perfil);
+  N.editarAcesso = async (id, o) => {
+    const atual = Store.s.equipe.find((p) => p.user_id === id) || {};
+    const donosAtivos = Store.s.equipe.filter((p) => p.perfil === 'dono' && p.ativo).length;
+    if (atual.perfil === 'dono' && atual.ativo && (o.perfil !== 'dono' || !o.ativo) && donosAtivos < 2) throw new Error('Precisa existir pelo menos um dono ativo.');
+    await A.gravar('usuarios/' + id, { nome: String(o.nome || atual.nome).trim(), perfil: o.perfil, ativo: !!o.ativo, atualizado_em: agoraIso() });
+  };
+  N.podeTrocarSenhaDeOutro = false;   // no plano grátis do Firebase, só a própria pessoa troca a senha
+  N.trocarSenha = async (id, senha) => {
+    if (id !== (App.user || {}).id) throw new Error('A senha só pode ser trocada pela própria pessoa (Ajustes → Minha senha). Se alguém esqueceu, crie um acesso novo para ele e bloqueie o antigo.');
+    if (String(senha || '').length < 6) throw new Error('A senha precisa ter 6 caracteres ou mais.');
+    try { await A.trocarMinhaSenha(senha); } catch (e) { throw new Error(erroTxt(e)); }
   };
 
-  // movimento de um período (painel do dono): direto do banco, sem guardar tudo no aparelho
-  const memo = new Map();
-  N.periodo = async (deIso, ateIso) => {
-    const k = deIso + '|' + ateIso, m = memo.get(k);
-    if (m && Date.now() - m.em < 20000) return m.rows;
-    const out = [];
-    for (let i = 0; ; i += PAG) {
-      // chegou no período OU foi entregue no período (o dinheiro conta no dia da entrega)
-      const rows = ok(await N.sb.from('atendimentos').select('*').eq('lava_id', lavaId())
-        .or(`and(entrada_em.gte."${deIso}",entrada_em.lt."${ateIso}"),and(entregue_em.gte."${deIso}",entregue_em.lt."${ateIso}")`).order('entrada_em').order('id').range(i, i + PAG - 1));
-      out.push(...rows);
-      if (rows.length < PAG) break;
-    }
-    // o que ainda está na fila deste aparelho vale mais do que a cópia do banco
-    const rows = out.map((r) => (pendente('atendimentos', r.id) ? Store.por('atendimentos', r.id) || r : r));
-    memo.set(k, { em: Date.now(), rows });
-    return rows;
+  // ---------------- administração ----------------
+  let lavasAdmin = [];
+  N.adminLavas = async () => {
+    const [lavas, donos] = await Promise.all([A.buscar('lavas', []), A.buscar('usuarios', [['perfil', '==', 'dono']])]);
+    lavasAdmin = lavas;
+    return lavas.map((l) => ({ ...l, dono: donos.filter((d) => d.lava_id === l.id && d.ativo).map((d) => `${d.nome} (${d.login})`).join(', ') }))
+      .sort((a, b) => (String(a.criado_em) < String(b.criado_em) ? 1 : -1));
   };
-  N.historicoCliente = async (clienteId) => ok(await N.sb.from('atendimentos').select('*').eq('lava_id', lavaId()).eq('cliente_id', clienteId).order('entrada_em', { ascending: false }).limit(60));
-
-  // ---------------- gravação (fila) ----------------
-  const limpar = (t, linha) => { const o = {}; for (const c of COLS[t]) if (linha[c] !== undefined) o[c] = linha[c]; return o; };
-  N.enfileirar = (t, linha) => {
-    const k = t === 'lavas' ? linha.id : linha[Store.CHAVE[t]];
-    const row = limpar(t, linha);
-    const ja = N.fila.find((op) => op.t === t && op.k === k);
-    if (ja) ja.row = row; else N.fila.push({ t, k, row });
-    memo.clear();
-    N.guardar(); status(); N.agendar();
+  N.adminCriarLava = async (o) => {
+    const slug = U.norm(o.slug);
+    if (!/^[a-z0-9-]{3,40}$/.test(slug)) throw new Error('O endereço deve ter de 3 a 40 letras minúsculas, números ou traço.');
+    if (String(o.nome || '').trim().length < 2) throw new Error('Informe o nome do lava-rápido.');
+    validar({ login: o.login, senha: o.senha, nome: o.dono });
+    if (await A.ler('marcas/' + slug)) throw new Error('Já existe um lava-rápido com esse endereço.');
+    const id = U.uuid(), agora = agoraIso();
+    const ops = [
+      ['lavas/' + id, { id, slug, nome: o.nome.trim(), marca: {}, config: {}, ativo: true, plano: 'mensal', pago_ate: o.pago_ate || null, criado_em: agora, atualizado_em: agora }],
+      ['marcas/' + slug, { lava_id: id, slug, nome: o.nome.trim(), marca: {}, atualizado_em: agora }]
+    ];
+    SERVICOS_PADRAO.forEach(([nome, precos, minutos], i) => { const sid = U.uuid(); ops.push([`lavas/${id}/servicos/${sid}`, { id: sid, lava_id: id, nome, precos, minutos, ordem: i + 1, ativo: true, atualizado_em: agora }]); });
+    await A.lote(ops);
+    await novoAcesso(id, { login: o.login, senha: o.senha, nome: o.dono }, 'dono');
+    return id;
   };
-  N.pendentes = () => N.fila.length;
-
-  let timer = null;
-  N.agendar = (ms = 400) => { clearTimeout(timer); timer = setTimeout(() => N.enviar(), ms); };
-
-  N.enviar = async () => {
-    if (N.enviando || !N.fila.length || !App.user) return;
-    if (!navigator.onLine) { status(); return; }
-    N.enviando = true; status();
-    try {
-      while (N.fila.length) {
-        const op = N.fila[0];
-        const enviado = JSON.stringify(op.row);
-        const r = op.t === 'lavas'
-          ? await N.sb.from('lavas').update(op.row).eq('id', op.k).select().single()
-          : await N.sb.from(op.t).upsert(op.row, { onConflict: CONFLITO[op.t] }).select().single();
-        if (r.error) {
-          if (!definitivo(r.error)) throw r.error;
-          // o banco recusou: tira da fila para não travar o resto e avisa
-          N.falhas.push({ t: op.t, k: op.k, erro: erroTxt(r.error), em: new Date().toISOString() });
-          N.fila.shift();
-          U.toast(/row-level security|permission/i.test(erroTxt(r.error)) ? 'Uma alteração não foi salva: este acesso não tem permissão.' : 'Uma alteração não foi salva: ' + erroTxt(r.error), 'bad');
-          continue;
-        }
-        // mudou de novo enquanto enviava? fica na fila para ir a versão mais nova
-        if (JSON.stringify(op.row) !== enviado) continue;
-        N.fila.shift();
-        if (op.t === 'lavas') Store.s.lava = { ...Store.s.lava, ...r.data };
-        // do atendimento voltam a ficha do dia e o "cliente novo" conferidos pelo banco;
-        // cliente e veículo ficam como estão: seus contadores chegam certos na busca logo depois da fila
-        else if (op.t === 'atendimentos' || op.t === 'servicos' || op.t === 'despesas' || op.t === 'agendamentos') Store.mesclar(op.t, r.data);
-      }
-      N.erro = null;
-    } catch (e) {
-      N.erro = erroTxt(e);
-      if (/jwt|token/i.test(N.erro)) { try { await N.sb.auth.refreshSession(); } catch (e2) {} }
-      setTimeout(() => N.agendar(0), 10000);
-    } finally {
-      N.enviando = false;
-      Store.rev++; N.guardar(); status();
-    }
-    if (!N.fila.length) { await N.puxar(); App.aoMudar(); }
+  N.adminEditarLava = async (id, o) => {
+    const l = lavasAdmin.find((x) => x.id === id) || {};
+    const agora = agoraIso();
+    const ops = [['lavas/' + id, { nome: String(o.nome || l.nome).trim(), ativo: !!o.ativo, plano: o.plano || l.plano || 'mensal', pago_ate: o.pago_ate || null, atualizado_em: agora }]];
+    if (l.slug) ops.push(['marcas/' + l.slug, { nome: String(o.nome || l.nome).trim(), atualizado_em: agora }]);
+    await A.lote(ops);
   };
+  N.adminCriarAcesso = (lava, o) => novoAcesso(lava, o, o.perfil);
+  N.adminAcessos = async (lava) => (await A.buscar('usuarios', [['lava_id', '==', lava]])).sort((a, b) => a.nome.localeCompare(b.nome));
 
-  // ---------------- cópia no aparelho ----------------
-  let cacheTimer = null;
-  N.guardar = () => {
-    clearTimeout(cacheTimer);
-    cacheTimer = setTimeout(() => {
-      if (!App.user || !Store.s) return;
-      try { localStorage.setItem(CACHE, JSON.stringify({ v: 1, user: App.user, s: Store.s, fila: N.fila, falhas: N.falhas.slice(-20), ultimo: N.ultimo })); } catch (e) {}
-    }, 300);
-  };
-  const lerCache = () => { try { const c = JSON.parse(localStorage.getItem(CACHE) || 'null'); return c && c.v === 1 ? c : null; } catch (e) { return null; } };
+  const SERVICOS_PADRAO = [
+    ['Lavagem simples', { moto: 20, p: 40, m: 50, g: 60, x: 70 }, 30], ['Lavagem completa', { moto: 35, p: 60, m: 70, g: 85, x: 100 }, 50],
+    ['Lavagem com cera', { moto: 45, p: 80, m: 95, g: 110, x: 130 }, 70], ['Lavagem detalhada', { moto: 80, p: 180, m: 220, g: 260, x: 300 }, 180],
+    ['Higienização interna', { moto: 0, p: 200, m: 240, g: 280, x: 320 }, 240], ['Lavagem de motor', { moto: 20, p: 50, m: 50, g: 60, x: 70 }, 30]
+  ];
 
-  // Ao abrir: usa a cópia do aparelho, envia o que ficou pendente e busca o que mudou
+  // ---------------- leitura: ouvintes que recebem tudo que muda ----------------
+  const parar = () => { for (const f of ouvintes) { try { f(); } catch (e) {} } ouvintes = []; };
+  let tMudou = null;
+  const mudou = () => { clearTimeout(tMudou); tMudou = setTimeout(() => { Store.rev++; N.guardar(); status(); App.aoMudar(); }, 120); };
+  const falhaLeitura = (e) => { N.erro = erroTxt(e); status(); };
+  const receber = (t) => (rows) => { for (const r of rows) Store.mesclar(t, r); if (rows.length) mudou(); };
+
   N.abrir = async (user) => {
     const c = lerCache();
-    if (c && c.user && c.user.id === user.id && c.s) {
-      // atendimentos antigos já encerrados saem da cópia (o histórico fica no banco)
+    const temCopia = !!(c && c.user && c.user.id === user.id && c.s && c.s.lava && c.s.lava.id);
+    if (temCopia) {
       const corte = U.somaDias(U.inicioDia(), -3).toISOString();
-      c.s.atendimentos = (c.s.atendimentos || []).filter((a) => ['aguardando', 'lavando', 'pronto'].includes(a.status) || a.entrada_em > corte || (a.entregue_em && a.entregue_em > corte) || (a.cancelado_em && a.cancelado_em > corte) || (c.fila || []).some((op) => op.k === a.id));
-      Store.usar(c.s); N.fila = c.fila || []; N.falhas = c.falhas || []; N.ultimo = c.ultimo || {};
-    } else { Store.usar(Store.vazio()); N.fila = []; N.falhas = []; N.ultimo = {}; }
+      c.s.atendimentos = (c.s.atendimentos || []).filter((a) => ABERTOS.includes(a.status) || a.entrada_em > corte || (a.entregue_em && a.entregue_em > corte) || (a.cancelado_em && a.cancelado_em > corte));
+      Store.usar(c.s);
+    } else Store.usar(Store.vazio());
     N.pronto = true;
     if (!user.lava_id) return;   // admin: não tem lava
-    const temCopia = !!(c && Store.s.lava.id);
-    const primeira = (async () => { await N.puxar(); if (N.fila.length) await N.enviar(); })();
-    if (!temCopia) { await primeira; if (!Store.s.lava.id) throw new Error(N.erro || 'Sem internet para carregar os dados pela primeira vez.'); }
+    parar();
+    const L = 'lavas/' + user.lava_id, col = (t) => L + '/' + t;
+    const lavaChegou = new Promise((res) => ouvintes.push(A.ouvirDoc(L, (d) => { Store.s.lava = { ...Store.s.lava, ...d }; App.aplicarMarca(); mudou(); res(); }, (e) => { falhaLeitura(e); res(); })));
+    ouvintes.push(A.ouvir('usuarios', [['lava_id', '==', user.lava_id]], receber('equipe'), falhaLeitura));
+    for (const t of ['servicos', 'clientes', 'veiculos']) ouvintes.push(A.ouvir(col(t), [], receber(t), falhaLeitura));
+    const doisDias = U.somaDias(U.inicioDia(), -2).toISOString();
+    ouvintes.push(A.ouvir(col('atendimentos'), [['status', 'in', ABERTOS]], receber('atendimentos'), falhaLeitura));
+    ouvintes.push(A.ouvir(col('atendimentos'), [['atualizado_em', '>=', doisDias]], receber('atendimentos'), falhaLeitura));
+    ouvintes.push(A.ouvir(col('agendamentos'), [['quando', '>=', U.somaDias(U.inicioDia(), -7).toISOString()]], receber('agendamentos'), falhaLeitura));
+    if (user.perfil === 'dono') ouvintes.push(A.ouvir(col('despesas'), [['data', '>=', U.dia(U.somaDias(new Date(), -400))]], receber('despesas'), falhaLeitura));
+    if (!temCopia) {
+      await Promise.race([lavaChegou, new Promise((r) => setTimeout(r, 15000))]);
+      if (!Store.s.lava.id) throw new Error(N.erro || 'Sem internet para carregar os dados pela primeira vez.');
+    }
   };
+  N.puxar = async () => false;   // com os ouvintes, o que muda já chega sozinho
 
-  // ---------------- indicador "Salvo / Enviando / Sem internet" ----------------
+  // movimento de um período (painel do dono): chegou OU foi entregue no período
+  N.periodo = async (deIso, ateIso) => {
+    const c = 'lavas/' + lavaId() + '/atendimentos';
+    const [a, b] = await Promise.all([A.buscar(c, [['entrada_em', '>=', deIso], ['entrada_em', '<', ateIso]]), A.buscar(c, [['entregue_em', '>=', deIso], ['entregue_em', '<', ateIso]])]);
+    const m = new Map(); for (const r of a.concat(b)) m.set(r.id, Store.por('atendimentos', r.id) || r);
+    return Array.from(m.values()).sort((x, y) => (x.entrada_em < y.entrada_em ? -1 : 1));
+  };
+  N.historicoCliente = async (clienteId) => (await A.buscar('lavas/' + lavaId() + '/atendimentos', [['cliente_id', '==', clienteId]]))
+    .map((r) => Store.por('atendimentos', r.id) || r).sort((a, b) => (a.entrada_em > b.entrada_em ? -1 : 1)).slice(0, 60);
+
+  // ---------------- gravação ----------------
+  const caminho = (t, linha) => `lavas/${lavaId()}/${t}/${linha[Store.CHAVE[t]]}`;
+  const numerando = new Set();
+  const enviar = (rotulo, promessa) => {
+    const op = { rotulo, em: Date.now() };
+    N.fila.push(op); status();
+    promessa.then(() => { N.erro = null; }).catch((e) => {
+      N.falhas.push({ t: rotulo, erro: erroTxt(e), em: agoraIso() });
+      U.toast('Uma alteração não foi salva: ' + erroTxt(e), 'bad');
+    }).finally(() => { N.fila = N.fila.filter((x) => x !== op); status(); N.guardar(); });
+  };
+  // página pública que o cliente acompanha pelo link (só o necessário, sem telefone)
+  const acompanhar = (a) => {
+    if (!a.token) return;
+    const c = DB.cliente(a.cliente_id), f = DB.fidelidade(c);
+    enviar('acompanhar', A.gravar('acompanhar/' + a.token, limpo({
+      lava_id: lavaId(), lava: DB.lava().nome, marca: DB.marca(), fidelidade: DB.cfg().fidelidade, numero: a.numero, status: a.status,
+      veiculo: a.veiculo, placa: a.placa, servicos: (a.servicos || []).map((s) => s.nome), total: a.total, previsao: a.previsao,
+      entrada_em: a.entrada_em, pronto_em: a.pronto_em, entregue_em: a.entregue_em, nome: U.primeiroNome(c ? c.nome : ''), saldo: f.saldo, atualizado_em: agoraIso()
+    })));
+  };
+  N.enfileirar = (t, linha) => {
+    if (!A || !lavaId()) return;
+    const agora = agoraIso();
+    if (t === 'lavas') {
+      const l = Store.s.lava;
+      enviar('marca', A.lote([['lavas/' + l.id, limpo({ nome: l.nome, marca: l.marca || {}, config: l.config || {}, atualizado_em: agora })],
+        ['marcas/' + l.slug, limpo({ nome: l.nome, marca: l.marca || {}, atualizado_em: agora })]]));
+      return;
+    }
+    linha.atualizado_em = agora;
+    enviar(t, A.gravar(caminho(t, linha), limpo(linha)));
+    if (t === 'atendimentos') {
+      acompanhar(linha);
+      // ficha do dia sem repetir entre aparelhos (só no momento da chegada e com internet)
+      const novo = !linha.ficha_ok && Date.now() - new Date(linha.entrada_em).getTime() < 3 * 60000;
+      if (novo && navigator.onLine && !numerando.has(linha.id)) {
+        numerando.add(linha.id);
+        A.proximoNumero(`lavas/${lavaId()}/contadores/${U.dia(linha.entrada_em)}`).then((n) => {
+          const a = Store.por('atendimentos', linha.id) || linha;
+          a.numero = n; a.ficha_ok = true; Store.salvar(); N.enfileirar('atendimentos', a); App.aoMudar();
+        }).catch(() => {});
+      }
+    }
+  };
+  N.pendentes = () => N.fila.length;
+  N.enviar = async () => {};
+  N.agendar = () => {};
+
+  // ---------------- cópia no aparelho (abre na hora, mesmo sem internet) ----------------
+  let tCache = null;
+  N.guardar = () => {
+    clearTimeout(tCache);
+    tCache = setTimeout(() => { if (!App.user || !Store.s) return; try { localStorage.setItem(CACHE, JSON.stringify({ v: 2, user: App.user, s: Store.s })); } catch (e) {} }, 300);
+  };
+  const lerCache = () => { try { const c = JSON.parse(localStorage.getItem(CACHE) || 'null'); return c && c.v === 2 ? c : null; } catch (e) { return null; } };
+
+  // ---------------- indicador "Salvo / Salvando / Sem internet" ----------------
   function status() {
     const el = document.getElementById('nuvemSt'); if (!el) return;
     const p = N.fila.length;
     let txt, cls, ic;
     if (!navigator.onLine) { txt = p ? `Sem internet · ${p} para enviar` : 'Sem internet'; cls = 'aviso'; ic = 'alerta'; }
-    else if (N.enviando) { txt = 'Salvando…'; cls = ''; ic = 'relogio'; }
-    else if (p && N.erro) { txt = `Sem sinal · ${p} para enviar`; cls = 'aviso'; ic = 'alerta'; }
-    else if (p) { txt = `${p} para enviar`; cls = 'aviso'; ic = 'relogio'; }
+    else if (p) { txt = 'Salvando…'; cls = ''; ic = 'relogio'; }
+    else if (N.erro) { txt = 'Sem conexão'; cls = 'aviso'; ic = 'alerta'; }
     else { txt = 'Salvo'; cls = 'bom'; ic = 'check'; }
     el.hidden = false;
     el.className = 'chip-st ' + cls;

@@ -1,117 +1,79 @@
 /* =========================================================
    Banco simulado (só para teste; o app não carrega isto).
-   Imita o Supabase na memória do navegador, com as mesmas regras
-   automáticas do banco de verdade (ficha do dia, contadores),
-   para testar login, fila sem internet e vários aparelhos
-   sem digitar senha nem tocar nos dados reais.
-   Usado por  testes/nuvem.html
+   Faz o papel do Firebase (login + Firestore) na memória do
+   navegador, com o mesmo "adaptador" que js/nuvem.js usa.
+   Dá para simular: sem internet, outro aparelho mexendo e o
+   banco recusando uma gravação. Usado por testes/nuvem.html.
    ========================================================= */
 (function () {
-  const LAVA = '11111111-1111-4111-8111-111111111111';
-  const carimbo = (() => { let n = Date.now(); return () => new Date(++n).toISOString().replace('Z', '000+00:00'); })();
+  const LAVA = 'lava-teste';
+  const agora = () => new Date().toISOString();
+  const copia = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
+  const docs = new Map();       // caminho → dados
+  const ouvintes = [];          // { col, filtros, cb } ou { doc, cb }
   const F = {
-    offline: false, recusar: null, chamadas: 0,
-    // para testar como dono:  localStorage.setItem('lr.teste.perfil', 'dono')  e recarregar
-    usuario: localStorage.getItem('lr.teste.perfil') === 'dono' ? { id: 'aaaaaaaa-0000-4000-8000-000000000002', perfil: 'dono' } : { id: 'aaaaaaaa-0000-4000-8000-000000000001', perfil: 'funcionario' },
-    t: {
-      lavas: [{ id: LAVA, slug: 'teste', nome: 'Lava Teste', marca: { cor: '#0f8a5f' }, config: {}, ativo: true, plano: 'mensal', pago_ate: null, atualizado_em: carimbo() }],
-      perfis: [
-        { user_id: 'aaaaaaaa-0000-4000-8000-000000000001', lava_id: LAVA, nome: 'Zé Funcionário', login: 'ze', perfil: 'funcionario', ativo: true },
-        { user_id: 'aaaaaaaa-0000-4000-8000-000000000002', lava_id: LAVA, nome: 'Dona Maria', login: 'maria', perfil: 'dono', ativo: true }
-      ],
-      servicos: [['Lavagem simples', 40, 30], ['Lavagem completa', 60, 50]].map(([nome, p, minutos], i) => ({ id: 'bbbbbbbb-0000-4000-8000-00000000000' + i, lava_id: LAVA, nome, precos: { moto: p / 2, p, m: p + 10, g: p + 20, x: p + 30 }, minutos, ordem: i + 1, ativo: true, atualizado_em: carimbo() })),
-      clientes: [], veiculos: [], atendimentos: [], agendamentos: [], despesas: []
-    }
+    offline: false, recusar: null, gravacoes: 0, docs,
+    usuario: localStorage.getItem('lr.teste.perfil') === 'dono' ? 'u-dono' : localStorage.getItem('lr.teste.perfil') === 'admin' ? 'u-admin' : 'u-func',
+    logins: { 'func@lava.local': 'u-func', 'dono@lava.local': 'u-dono', 'admin@lava.local': 'u-admin' }
   };
   window.FAKE = F;
-  const PK = { lavas: ['id'], perfis: ['user_id'], servicos: ['id'], clientes: ['id'], veiculos: ['lava_id', 'placa'], atendimentos: ['id'], agendamentos: ['id'], despesas: ['id'] };
-  const copia = (o) => JSON.parse(JSON.stringify(o));
-  const falha = () => ({ data: null, error: { message: 'TypeError: Failed to fetch' } });
 
-  // o que os gatilhos do banco fazem
-  const recalcular = (a) => {
-    const c = F.t.clientes.find((x) => x.id === a.cliente_id), dele = F.t.atendimentos.filter((x) => x.cliente_id === a.cliente_id && x.status !== 'cancelado');
-    if (c) Object.assign(c, { visitas: dele.length, pontos_usados: dele.reduce((t, x) => t + (x.pontos_usados || 0), 0), gasto: dele.filter((x) => x.status === 'entregue').reduce((t, x) => t + x.total, 0), ultima_visita: dele.length ? dele[dele.length - 1].entrada_em : null, primeira_visita: dele.length ? dele[0].entrada_em : null, atualizado_em: carimbo() });
-    const v = F.t.veiculos.find((x) => x.placa === a.placa), doCarro = F.t.atendimentos.filter((x) => x.placa === a.placa && x.status !== 'cancelado');
-    if (v) Object.assign(v, { visitas: doCarro.length, ultima_visita: doCarro.length ? doCarro[doCarro.length - 1].entrada_em : null, ultimos_servicos: doCarro.length ? doCarro[doCarro.length - 1].servicos : null, atualizado_em: carimbo() });
-  };
-  const gravar = (tab, linha) => {
-    const lista = F.t[tab], atual = lista.find((x) => PK[tab].every((k) => x[k] === linha[k]));
-    if (F.recusar && F.recusar(tab, linha)) return { data: null, error: { code: '42501', message: 'new row violates row-level security policy' } };
-    let r;
-    if (atual) { r = Object.assign(atual, copia(linha)); }
-    else {
-      r = copia(linha);
-      if (tab === 'clientes') Object.assign(r, { visitas: 0, pontos_usados: 0, gasto: 0, primeira_visita: null, ultima_visita: null });
-      if (tab === 'veiculos') Object.assign(r, { visitas: 0, ultima_visita: null, ultimos_servicos: null });
-      if (tab === 'atendimentos') {
-        const dia = String(r.entrada_em).slice(0, 10);
-        r.numero = F.t.atendimentos.filter((x) => String(x.entrada_em).slice(0, 10) === dia).reduce((m, x) => Math.max(m, x.numero || 0), 0) + 1;
-        r.cliente_novo = !F.t.atendimentos.some((x) => x.cliente_id === r.cliente_id && x.status !== 'cancelado');
-        r.atendente = F.usuario.id;
-      }
-      lista.push(r);
+  const pai = (p) => p.split('/').slice(0, -1).join('/');
+  const casa = (r, filtros) => (filtros || []).every(([c, op, v]) => {
+    const x = r[c];
+    if (op === '==') return x === v;
+    if (op === 'in') return v.includes(x);
+    if (x == null) return false;
+    return op === '>=' ? x >= v : op === '<' ? x < v : op === '>' ? x > v : op === '<=' ? x <= v : false;
+  });
+  const avisar = (caminho) => {
+    const d = docs.get(caminho);
+    for (const o of ouvintes) {
+      if (o.doc === caminho && d) o.cb(copia(d));
+      if (o.col && o.col === pai(caminho) && d && casa(d, o.filtros)) o.cb([copia(d)]);
     }
-    if (tab === 'atendimentos') r.total = Math.max(0, (r.valor || 0) - (r.desconto || 0));
-    r.atualizado_em = carimbo();
-    if (tab === 'atendimentos') recalcular(r);
-    return { data: copia(r), error: null };
+  };
+  const por = (p, d) => { docs.set(p, d); };
+  const esperarRede = () => new Promise((res) => { const t = () => (F.offline ? setTimeout(t, 100) : res()); setTimeout(t, 20); });
+
+  // dados iniciais: um lava com dois serviços, um dono, um funcionário e o admin
+  por('sistema/admin', { uid: 'u-admin' });
+  por('lavas/' + LAVA, { id: LAVA, slug: 'teste', nome: 'Lava Teste', marca: { cor: '#0f8a5f' }, config: {}, ativo: true, plano: 'mensal', pago_ate: null, criado_em: agora() });
+  por('marcas/teste', { lava_id: LAVA, slug: 'teste', nome: 'Lava Teste', marca: { cor: '#0f8a5f' } });
+  por('usuarios/u-admin', { user_id: 'u-admin', lava_id: null, nome: 'Admin', login: 'admin', perfil: 'admin', ativo: true });
+  por('usuarios/u-dono', { user_id: 'u-dono', lava_id: LAVA, nome: 'Dona Maria', login: 'dono', perfil: 'dono', ativo: true });
+  por('usuarios/u-func', { user_id: 'u-func', lava_id: LAVA, nome: 'Zé Funcionário', login: 'func', perfil: 'funcionario', ativo: true });
+  [['Lavagem simples', 40, 30], ['Lavagem completa', 60, 50]].forEach(([nome, p, minutos], i) => {
+    const id = 'sv' + i;
+    por(`lavas/${LAVA}/servicos/${id}`, { id, lava_id: LAVA, nome, precos: { moto: p / 2, p, m: p + 10, g: p + 20, x: p + 30 }, minutos, ordem: i + 1, ativo: true });
+  });
+
+  // "outro aparelho" grava direto no banco simulado
+  F.gravarComoOutro = (caminho, dados) => { docs.set(caminho, { ...(docs.get(caminho) || {}), ...copia(dados) }); avisar(caminho); };
+  F.ler = (caminho) => copia(docs.get(caminho));
+  F.lista = (col) => Array.from(docs.entries()).filter(([k]) => pai(k) === col).map(([, v]) => copia(v));
+
+  const gravarUm = (caminho, dados) => {
+    if (F.recusar && F.recusar(caminho, dados)) return Promise.reject(Object.assign(new Error('sem permissão'), { code: 'permission-denied' }));
+    docs.set(caminho, { ...(docs.get(caminho) || {}), ...copia(dados) });   // vale na hora (como o Firestore faz no aparelho)
+    avisar(caminho);
+    F.gravacoes++;
+    return esperarRede();                                                  // a confirmação do servidor só vem com internet
   };
 
-  // consulta encadeada, no estilo do supabase-js
-  const consulta = (tab) => {
-    const q = { filtros: [], ordens: [], faixa: null, um: false, acao: null };
-    const rodar = () => {
-      F.chamadas++;
-      if (F.offline) return falha();
-      if (q.acao) {
-        if (q.acao.tipo === 'upsert') return gravar(tab, q.acao.linha);
-        const alvo = F.t[tab].find((x) => q.filtros.every((f) => f(x)));
-        if (!alvo) return { data: null, error: { code: 'PGRST116', message: 'no rows' } };
-        return gravar(tab, { ...alvo, ...q.acao.linha });
-      }
-      let rows = F.t[tab].filter((x) => q.filtros.every((f) => f(x)));
-      // regra do banco: funcionário só vê atendimento em aberto ou das últimas 36 horas
-      if (tab === 'atendimentos' && F.usuario.perfil !== 'dono') rows = rows.filter((a) => ['aguardando', 'lavando', 'pronto'].includes(a.status) || Math.max(new Date(a.entrada_em), new Date(a.entregue_em || 0), new Date(a.cancelado_em || 0)) > Date.now() - 36 * 3600e3);
-      if (tab === 'despesas' && F.usuario.perfil !== 'dono') rows = [];
-      for (const [c, asc] of q.ordens.slice().reverse()) rows.sort((a, b) => (a[c] === b[c] ? 0 : (a[c] > b[c] ? 1 : -1) * (asc ? 1 : -1)));
-      if (q.faixa) rows = rows.slice(q.faixa[0], q.faixa[1] + 1);
-      rows = copia(rows);
-      return { data: q.um ? rows[0] || null : rows, error: null };
-    };
-    const api = {
-      select: () => api,
-      eq: (c, v) => { q.filtros.push((x) => x[c] === v); return api; },
-      gt: (c, v) => { q.filtros.push((x) => x[c] > v); return api; },
-      gte: (c, v) => { q.filtros.push((x) => x[c] >= v); return api; },
-      lt: (c, v) => { q.filtros.push((x) => x[c] < v); return api; },
-      or: (txt) => {
-        const datas = Array.from(txt.matchAll(/"([^"]+)"/g), (m) => new Date(m[1]).getTime());
-        const em = (iso, a, b) => !!iso && new Date(iso).getTime() >= a && (b === undefined || new Date(iso).getTime() < b);
-        if (txt.startsWith('and(')) q.filtros.push((x) => em(x.entrada_em, datas[0], datas[1]) || em(x.entregue_em, datas[0], datas[1]));
-        else q.filtros.push((x) => ['aguardando', 'lavando', 'pronto'].includes(x.status) || em(x.entrada_em, datas[0]) || em(x.entregue_em, datas[0]) || em(x.cancelado_em, datas[0]));
-        return api;
-      },
-      order: (c, o) => { q.ordens.push([c, !(o && o.ascending === false)]); return api; },
-      range: (a, b) => { q.faixa = [a, b]; return api; },
-      limit: (n) => { q.faixa = [0, n - 1]; return api; },
-      maybeSingle: () => { q.um = true; return api; },
-      single: () => { q.um = true; return api; },
-      upsert: (linha) => { q.acao = { tipo: 'upsert', linha }; return api; },
-      update: (linha) => { q.acao = { tipo: 'update', linha }; return api; },
-      then: (ok, erro) => new Promise((r) => setTimeout(() => r(rodar()), 15)).then(ok, erro)
-    };
-    return api;
-  };
-
-  window.LAVA_TESTE_SB = {
-    from: consulta,
-    rpc: (nome) => Promise.resolve(F.offline ? falha() : { data: nome === 'ha_admin' ? true : null, error: null }),
-    auth: {
-      getSession: () => Promise.resolve({ data: { session: F.usuario ? { user: { id: F.usuario.id } } : null } }),
-      signInWithPassword: () => Promise.resolve({ error: { message: 'Invalid login credentials' } }),
-      signOut: () => { F.usuario = null; return Promise.resolve({}); },
-      refreshSession: () => Promise.resolve({})
-    }
+  window.LAVA_TESTE_API = {
+    entrar: async (email, senha) => { const uid = F.logins[email]; if (!uid || String(senha).length < 6) throw Object.assign(new Error('x'), { code: 'auth/invalid-credential' }); F.usuario = uid; return uid; },
+    sair: async () => { F.usuario = null; },
+    uidAtual: async () => F.usuario,
+    criarLoginProprio: async (email) => { const uid = 'u-' + Math.random().toString(36).slice(2, 8); F.logins[email] = uid; F.usuario = uid; return uid; },
+    criarLogin: async (email) => { if (F.logins[email]) throw Object.assign(new Error('x'), { code: 'auth/email-already-in-use' }); const uid = 'u-' + Math.random().toString(36).slice(2, 8); F.logins[email] = uid; return uid; },
+    trocarMinhaSenha: async () => {},
+    ler: async (p) => { if (F.offline && !docs.has(p)) throw Object.assign(new Error('x'), { code: 'unavailable' }); return copia(docs.get(p)) || null; },
+    gravar: (p, d) => gravarUm(p, d),
+    lote: (ops) => Promise.all(ops.map(([p, d]) => gravarUm(p, d))),
+    buscar: async (col, filtros) => { if (F.offline) throw Object.assign(new Error('x'), { code: 'unavailable' }); return F.lista(col).filter((r) => casa(r, filtros)); },
+    ouvir: (col, filtros, cb) => { const o = { col, filtros, cb }; ouvintes.push(o); setTimeout(() => cb(F.lista(col).filter((r) => casa(r, filtros))), 10); return () => ouvintes.splice(ouvintes.indexOf(o), 1); },
+    ouvirDoc: (p, cb) => { const o = { doc: p, cb }; ouvintes.push(o); setTimeout(() => docs.has(p) && cb(copia(docs.get(p))), 10); return () => ouvintes.splice(ouvintes.indexOf(o), 1); },
+    proximoNumero: async (p) => { if (F.offline) throw new Error('offline'); const n = ((docs.get(p) || {}).n || 0) + 1; docs.set(p, { n }); return n; }
   };
 })();

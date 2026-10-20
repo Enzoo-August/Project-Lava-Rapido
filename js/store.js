@@ -8,7 +8,7 @@
   const params = new URLSearchParams(location.search);
   const CFG = window.LAVA_CFG || {};
   const S = {
-    modo: params.get('demo') === '1' || !(CFG.url && CFG.chave) ? 'demo' : 'nuvem',
+    modo: params.get('demo') === '1' || !(CFG.firebase && CFG.firebase.apiKey) ? 'demo' : 'nuvem',
     s: null, rev: 0, idx: {}
   };
   window.Store = S;

@@ -167,7 +167,7 @@
       <label class="campo"><span>Senha (6 ou mais)</span><input name="senha" type="text" autocapitalize="none" autocomplete="off"></label>`}
       <label class="campo"><span>O que pode fazer</span><select name="perfil">${Object.entries(PERFIL).map(([id, t]) => `<option value="${id}"${(p ? p.perfil : 'funcionario') === id ? ' selected' : ''}>${t}</option>`).join('')}</select></label>
       ${p ? `<label class="chave"><input type="checkbox" name="ativo" ${p.ativo ? 'checked' : ''}><span>Acesso liberado</span></label>
-        <label class="campo"><span>Nova senha (deixe em branco para não trocar)</span><input name="senha" type="text" autocapitalize="none" autocomplete="off"></label>` : ''}
+        <p class="mudo pequeno">A pessoa troca a própria senha em Ajustes → Minha senha. Esqueceu a senha? Desligue “Acesso liberado” e crie um acesso novo para ela.</p>` : ''}
       <p class="mudo pequeno">Dica: um acesso de funcionário pode ficar aberto no celular do lava-rápido, e todos usam o mesmo.</p>`,
     acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Salvar', cls: 'btn-marca', aoTocar: async (el) => {
       const f = U.campos(el);

@@ -44,7 +44,7 @@
   <header class="topo" id="topo"><h1>Acompanhe seu carro</h1></header>
   <main id="corpo"><div class="cartao"><p class="mudo centro">Carregando…</p></div></main>
 
-  <script src="../js/config.js?v=1"></script>
+  <script src="../js/config.js?v=6"></script>
   <script>
   (function () {
     var p = new URLSearchParams(location.search), token = p.get('t') || '', demo = p.get('demo') === '1';
@@ -58,6 +58,20 @@
     var placaFmt = function (s) { return /^SEM-/.test(s) ? '' : /^[A-Z]{3}\d{4}$/.test(s) ? s.slice(0, 3) + '-' + s.slice(3) : s; };
     var textoSobre = function (hex) { var m = /^#?([0-9a-f]{6})$/i.exec(hex || ''); if (!m) return '#fff'; var n = parseInt(m[1], 16), f = function (v) { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(n >> 16 & 255) + 0.7152 * f(n >> 8 & 255) + 0.0722 * f(n & 255) > 0.45 ? '#10151c' : '#fff'; };
 
+    // o Firestore devolve cada campo com o tipo junto ({ stringValue: "…" }): isto desembrulha
+    function valor(v) {
+      if (!v) return null;
+      if ('stringValue' in v) return v.stringValue;
+      if ('integerValue' in v) return Number(v.integerValue);
+      if ('doubleValue' in v) return Number(v.doubleValue);
+      if ('booleanValue' in v) return v.booleanValue;
+      if ('timestampValue' in v) return v.timestampValue;
+      if ('nullValue' in v) return null;
+      if ('arrayValue' in v) return (v.arrayValue.values || []).map(valor);
+      if ('mapValue' in v) { var o = {}, c = v.mapValue.fields || {}; for (var k in c) o[k] = valor(c[k]); return o; }
+      return null;
+    }
+
     // demonstração: lê os dados de exemplo guardados neste aparelho
     function buscarDemo() {
       var c = JSON.parse(localStorage.getItem('lr.demo') || 'null'), s = c && c.s; if (!s) return null;
@@ -69,8 +83,11 @@
     }
     function buscar() {
       if (demo) return Promise.resolve(buscarDemo());
-      return fetch(CFG.url + '/rest/v1/rpc/acompanhar', { method: 'POST', headers: { apikey: CFG.chave, 'Content-Type': 'application/json' }, body: JSON.stringify({ p_token: token }) })
-        .then(function (r) { if (!r.ok) throw new Error('falha'); return r.json(); });
+      // documento público "acompanhar/<código do link>" no Firestore (só leitura, sem login)
+      if (!/^[a-zA-Z0-9-]{12,}$/.test(token)) return Promise.resolve(null);
+      var f = CFG.firebase || {};
+      return fetch('https://firestore.googleapis.com/v1/projects/' + f.projectId + '/databases/(default)/documents/acompanhar/' + token + '?key=' + f.apiKey)
+        .then(function (r) { if (r.status === 404 || r.status === 403) return null; if (!r.ok) throw new Error('falha'); return r.json().then(function (j) { return valor({ mapValue: { fields: j.fields || {} } }); }); });
     }
 
     var ETAPAS = [['aguardando', 'Recebido'], ['lavando', 'Lavando'], ['pronto', 'Pronto'], ['entregue', 'Entregue']];

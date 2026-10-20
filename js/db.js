@@ -163,6 +163,7 @@
     c.visitas = (c.visitas || 0) + 1; c.pontos_usados = (c.pontos_usados || 0) + a.pontos_usados;
     c.ultima_visita = agora; if (!c.primeira_visita) c.primeira_visita = agora;
     v.visitas = (v.visitas || 0) + 1; v.ultima_visita = agora; v.ultimos_servicos = o.itens;
+    DB.gravar('clientes', c); DB.gravar('veiculos', v);   // contadores da fidelidade vão junto
     return DB.gravar('atendimentos', a);
   };
 
@@ -183,6 +184,7 @@
       if (novo === 'pronto') { a.inicio_em = a.inicio_em || a.entrada_em; a.pronto_em = a.pronto_em && antes === 'entregue' ? a.pronto_em : agora; a.entregue_em = null; a.pagamento = null; }
       if (novo === 'entregue') { a.inicio_em = a.inicio_em || a.entrada_em; a.pronto_em = a.pronto_em || agora; a.entregue_em = agora; }
       if (novo === 'cancelado') a.cancelado_em = agora;
+      if (c && [antes, novo].some((s) => s === 'entregue' || s === 'cancelado')) DB.gravar('clientes', c);
     }
     return DB.gravar('atendimentos', a);
   };
@@ -196,7 +198,7 @@
       if (c && a.status === 'entregue') c.gasto = (c.gasto || 0) - a.total;
       a.valor = Number(m.valor); a.desconto = m.desconto != null ? Number(m.desconto) : Math.round(a.valor * pct * 100) / 100;
       a.total = Math.max(0, a.valor - a.desconto);
-      if (c && a.status === 'entregue') c.gasto += a.total;
+      if (c && a.status === 'entregue') { c.gasto += a.total; DB.gravar('clientes', c); }
     }
     for (const k of ['obs', 'previsao', 'lavador', 'pagamento', 'avisado_em']) if (m[k] !== undefined) a[k] = m[k];
     return DB.gravar('atendimentos', a);

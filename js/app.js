@@ -112,7 +112,7 @@
         <p class="mudo centro">Demonstração com dados de exemplo.<br>Escolha como quer entrar:</p>
         <button class="btn btn-marca btn-g btn-bloco" data-perfil="funcionario">${U.icon('carro')}<span>Entrar como funcionário</span></button>
         <button class="btn btn-g btn-bloco" data-perfil="dono">${U.icon('grafico')}<span>Entrar como dono</span></button>
-        ${(window.LAVA_CFG || {}).url ? `<a class="link centro" href="${semDemo()}">Já sou cliente: entrar com meu usuário</a>` : ''}
+        ${((window.LAVA_CFG || {}).firebase || {}).apiKey ? `<a class="link centro" href="${semDemo()}">Já sou cliente: entrar com meu usuário</a>` : ''}
       </div>`;
       el.onclick = (e) => { const b = e.target.closest('[data-perfil]'); if (!b) return; Store.pref('demo.perfil', b.dataset.perfil); App.user = Demo.usuario(b.dataset.perfil); el.hidden = true; mostrarApp(); };
       return;
