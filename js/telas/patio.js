@@ -263,6 +263,15 @@
     });
   };
 
+  // pátio em ordem de trabalho: primeiro quem está lavando, depois quem espera na fila
+  const secoesPatio = (lista, prontos) => {
+    const lavando = lista.filter((a) => a.status === 'lavando'), fila = lista.filter((a) => a.status === 'aguardando');
+    const secao = (titulo, dica, itens) => (itens.length ? `<section class="secao-patio"><h3>${titulo} <span>${itens.length}</span></h3><p class="mudo pequeno">${dica}</p><div class="atends">${itens.map(Atend.cartao).join('')}</div></section>` : '');
+    return secao('Lavando agora', 'Quando terminar, toque em “Ficou pronto”.', lavando)
+      + secao('Esperando para lavar', DB.cfg().usarLavando ? 'Quando pegar o carro, toque em “Começar a lavar”. O primeiro da lista chegou antes.' : 'Quando terminar, toque em “Ficou pronto”. O primeiro da lista chegou antes.', fila)
+      + (prontos ? `<a class="faixa-agenda" href="#/patio/pronto">${U.icon('check')}<span><b>${prontos} pronto${prontos > 1 ? 's' : ''} esperando o cliente</b><small>toque para entregar</small></span>${U.icon('seta', 'fim')}</a>` : '');
+  };
+
   // ---------------- tela ----------------
   const ABAS = [['patio', 'No pátio'], ['pronto', 'Prontos'], ['entregue', 'Entregues']];
   Telas.patio = {
@@ -281,7 +290,8 @@
       const total = aba === 'entregue' && DB.ehDono() ? `<p class="mudo centro">Total recebido hoje: <b>${U.brl(lista.reduce((t, a) => t + a.total, 0))}</b></p>` : '';
       el.innerHTML = `
         <div class="abas">${ABAS.map(([id, txt]) => `<a href="#/patio/${id === 'patio' ? '' : id}" class="${id === aba ? 'ativo' : ''}">${txt}<span>${listas[id].length}</span></a>`).join('')}</div>
-        ${lista.length ? `<div class="atends">${lista.map(Atend.cartao).join('')}</div>${total}`
+        ${aba === 'patio' && lista.length ? secoesPatio(lista, listas.pronto.length)
+          : lista.length ? `<div class="atends">${lista.map(Atend.cartao).join('')}</div>${total}`
           : `<div class="vazio">${U.icon(vazio[0])}<p>${vazio[1]}</p><p class="mudo">${vazio[2]}</p>${DB.bloqueado() ? '' : `<a class="btn btn-marca btn-g" href="#/entrada">${U.icon('mais')}<span>Chegou carro</span></a>`}</div>`}`;
       Atend.ligar(el);
     }

@@ -454,3 +454,9 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 [data-tema="escuro"] .placa-visor span { border-bottom-color: #dde2e8; }
 [data-tema="escuro"] .placa-visor span.vez { border-bottom-color: #0b63ce; }
 [data-tema="escuro"] .pe-fixo { box-shadow: 0 -4px 14px rgba(0, 0, 0, .35); }
+
+/* pátio dividido por etapa */
+.secao-patio { display: grid; gap: 8px; }
+.secao-patio h3 { font-size: 17px; display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+.secao-patio h3 span { background: var(--marca); color: var(--marca-txt); border-radius: 99px; font-size: 13px; padding: 1px 9px; }
+.secao-patio .mudo { margin-top: -6px; }

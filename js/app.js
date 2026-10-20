@@ -241,8 +241,8 @@
     const u = App.user, home = rota === inicial();
     const m = u.perfil === 'admin' ? {} : DB.marca(), nome = u.perfil === 'admin' ? 'Administração' : DB.lava().nome;
     const esquerda = home || (u.perfil === 'dono' && MENU.some((x) => x.r === rota && !x.mais))
-      ? `<div class="topo-marca">${App.logoHtml(m, nome)}<div><b>${U.esc(home ? nome : tela.titulo)}</b><small>${U.esc(home ? saudacao() + ', ' + U.primeiroNome(u.nome) : nome)}</small></div></div>`
-      : `<button class="ic-btn voltar" id="btVoltar" aria-label="Voltar">${U.icon('voltar')}</button><h1 class="topo-titulo">${U.esc(typeof tela.titulo === 'function' ? tela.titulo(App.args) : tela.titulo)}</h1>`;
+      ? `<div class="topo-marca">${App.logoHtml(m, nome)}<div><b>${U.esc(home ? nome : tituloDe(tela))}</b><small>${U.esc(home ? saudacao() + ', ' + U.primeiroNome(u.nome) : nome)}</small></div></div>`
+      : `<button class="ic-btn voltar" id="btVoltar" aria-label="Voltar">${U.icon('voltar')}</button><h1 class="topo-titulo">${U.esc(tituloDe(tela))}</h1>`;
     $('topo').innerHTML = `${esquerda}<div class="topo-acoes">
       ${DEMO ? '<span class="chip-st demo">Demonstração</span>' : '<span id="nuvemSt" class="chip-st" hidden></span>'}
       ${u.perfil !== 'dono' ? `<button class="ic-btn" id="btMenu" aria-label="Menu">${U.icon('menu')}</button>` : ''}
@@ -251,6 +251,8 @@
     const bm = $('btMenu'); if (bm) bm.onclick = menuFuncionario;
     if (!DEMO) Nuvem.status();
   }
+  // o título pode ser um texto ou uma função (que depende da aba aberta)
+  const tituloDe = (tela) => (typeof tela.titulo === 'function' ? tela.titulo(App.args || []) : tela.titulo) || '';
   const saudacao = () => { const h = new Date().getHours(); return h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'; };
 
   function desenharMenu(rota) {

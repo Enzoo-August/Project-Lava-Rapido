@@ -22,6 +22,8 @@ window.aud = async (perfil, placa) => {
   const medir = (nome) => {
     const W = document.documentElement.clientWidth, H = window.innerHeight;
     if (document.documentElement.scrollWidth > W + 1) prob.push(`${nome}: rolagem lateral (${document.documentElement.scrollWidth} > ${W})`);
+    // texto de programa aparecendo na tela (ex.: título que era uma função)
+    if (/=>|function|undefined|NaN|\[object/.test(document.getElementById('topo').innerText + ' ' + document.title)) prob.push(`${nome}: código no título: ${document.getElementById('topo').innerText.slice(0, 60)}`);
     const modal = document.querySelector('.modal');
     if (modal) { const r = modal.getBoundingClientRect(); if (r.top < -1 || r.bottom > H + 1) prob.push(`${nome}: janela maior que a tela`); }
     for (const el of document.querySelectorAll('#app button, #app a, #app input, #app select, #app textarea, #app .placa, #app b, #app h1, #app h2, #app h3, .modal button, .modal a, .modal input')) {
