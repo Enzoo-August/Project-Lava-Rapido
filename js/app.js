@@ -11,12 +11,12 @@
   const $ = (id) => document.getElementById(id);
   const DEMO = Store.modo === 'demo';
   const params = new URLSearchParams(location.search);
-  const semDemo = () => location.pathname + (params.get('l') ? '?l=' + encodeURIComponent(params.get('l')) : '');
+  const semDemo = () => '/';
 
   // ---------------- marca (nome, logo e cor de cada lava-rápido) ----------------
   App.aplicarMarca = (m, nome) => {
-    m = m || (Store.s && Store.s.lava.id ? DB.marca() : null) || lerMarca() || {};
-    nome = nome || (Store.s && Store.s.lava.id ? DB.lava().nome : (lerMarca() || {}).nome) || 'Lava Rápido';
+    m = m || (Store.s && Store.s.lava.id ? DB.marca() : null) || {};
+    nome = nome || (Store.s && Store.s.lava.id ? DB.lava().nome : '') || 'Lava Rápido';
     const cor = U.hexRgb(m.cor) ? m.cor : '#0b63ce';
     const st = document.documentElement.style;
     st.setProperty('--marca', cor);
@@ -43,7 +43,6 @@
     const tc = document.querySelector('meta[name="theme-color"]'); if (tc) tc.content = topo || (esc ? sup : cor);
     document.title = nome;
     const at = document.querySelector('meta[name="apple-mobile-web-app-title"]'); if (at) at.content = nome;
-    if (Store.s && Store.s.lava.id && !DEMO) { try { localStorage.setItem('lr.marca', JSON.stringify({ ...m, nome, slug: Store.s.lava.slug })); } catch (e) {} }
   };
   // ---------------- aparência clara / escura (cada aparelho escolhe a sua) ----------------
   App.escuro = () => document.documentElement.getAttribute('data-tema') === 'escuro';
@@ -63,16 +62,11 @@
     caixa.onclick = (e) => { const b = e.target.closest('[data-tema]'); if (!b) return; App.aplicarTema(b.dataset.tema); caixa.querySelectorAll('button').forEach((x) => x.classList.toggle('ativo', x === b)); };
   };
   try { window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => App.aplicarTema()); } catch (e) {}
-  // lava ligado ao endereço (ex.: agaragemz.web.app → garagem-z)
-  const slugDoSite = () => ((window.LAVA_CFG || {}).sites || {})[location.hostname] || '';
-  App.enderecoDe = (slug) => {
-    const cfg = window.LAVA_CFG || {}, host = Object.keys(cfg.sites || {}).find((h) => cfg.sites[h] === slug && h.endsWith('.web.app'));
-    return host ? 'https://' + host : (cfg.sitePrincipal || location.origin + location.pathname.replace(/\/$/, '')) + '/?l=' + slug;
-  };
-  // marca guardada só vale no endereço daquele lava (agaragemz.web.app ou ?l=garagem-z);
-  // no endereço principal a entrada é neutra, para não mostrar o último lava que usou o aparelho
-  const slugPedido = () => params.get('l') || slugDoSite();
-  const lerMarca = () => { try { const c = JSON.parse(localStorage.getItem('lr.marca') || 'null'); return c && slugPedido() && c.slug === slugPedido() ? c : null; } catch (e) { return null; } };
+  // um endereço só para todos (lavarapido.web.app); depois de entrar, o caminho mostra
+  // de quem é: /administracao ou /slug-do-lava. Sair volta para a raiz.
+  App.enderecoDe = () => (window.LAVA_CFG || {}).sitePrincipal || location.origin;
+  const caminho = (p) => { if (!DEMO && location.pathname !== p) history.replaceState(null, '', p + location.search + location.hash); };
+  const caminhoDoUsuario = () => '/' + (App.user.perfil === 'admin' ? 'administracao' : (DB.lava().slug || ''));
   App.logoHtml = (m, nome, cls) => (m && m.logo
     ? `<img class="logo ${cls || ''}" src="${U.esc(m.logo)}" alt="${U.esc(nome)}">`
     : `<span class="logo-letra ${cls || ''}">${U.icon('gota')}</span>`);
@@ -104,12 +98,12 @@
   async function telaLogin(erroInicial) {
     $('app').hidden = true;
     const el = $('login'); el.hidden = false;
-    let m = lerMarca() || {}, nome = m.nome || 'Lava Rápido', primeiro = false;
+    // entrada igual para todos: "Lava Rápido" com a gota; a marca do lava só aparece depois de entrar
+    let m = {}, nome = 'Lava Rápido', primeiro = false;
     if (DEMO) { m = Store.s.lava.marca; nome = Store.s.lava.nome; }
     else if (Nuvem.sb) {
+      caminho('/');
       try {
-        const slug = slugPedido();
-        if (slug) { const r = await Nuvem.marca(slug); if (r) { m = { ...r.marca, slug: r.slug }; nome = r.nome; try { localStorage.setItem('lr.marca', JSON.stringify({ ...m, nome })); } catch (e) {} } }
         primeiro = !(await Nuvem.haAdmin());
       } catch (e) { erroInicial = erroInicial || 'Sem internet. Verifique o sinal e tente de novo.'; }
     }
@@ -177,8 +171,7 @@
     if (!DEMO && Nuvem.pendentes() > 0 && !(await U.confirmar('Ainda há dados para enviar', `Faltam ${Nuvem.pendentes()} alterações para enviar ao banco (sem internet). Se sair agora, elas se perdem.`, 'Sair mesmo assim', 'btn-perigo'))) return;
     if (DEMO) Store.pref('demo.perfil', null); else await Nuvem.sair();
     App.user = null;
-    location.hash = '';
-    location.reload();
+    location.replace(DEMO ? '/?demo=1' : '/');
   };
 
   // ---------------- menu ----------------
@@ -201,6 +194,7 @@
     $('app').hidden = false;
     $('app').dataset.perfil = App.user.perfil;
     App.aplicarMarca();
+    caminho(caminhoDoUsuario());
     if (!location.hash || location.hash === '#/') history.replaceState(null, '', location.pathname + location.search + '#/' + inicial());
     window.onhashchange = () => App.render();
     App.render();

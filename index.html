@@ -2,6 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
+  <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Lava Rápido</title>
   <meta name="description" content="Controle de chegada, lavagem e entrega de carros para lava-rápido, com aviso no WhatsApp, fidelidade e painel do dono.">
@@ -14,7 +15,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/app.css?v=9">
+  <link rel="stylesheet" href="css/app.css?v=10">
   <script>
     // aparência escolhida neste aparelho (clara, escura ou automática), aplicada antes de pintar a tela
     try { var t = JSON.parse(localStorage.getItem('lr.pref.tema') || '"claro"'); if (t === 'escuro' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.setAttribute('data-tema', 'escuro'); } catch (e) {}
@@ -42,26 +43,26 @@
   <div id="modalRoot"></div>
   <div id="toastRoot" class="toasts" aria-live="polite"></div>
 
-  <script src="js/config.js?v=9"></script>
-  <script src="js/util.js?v=9"></script>
-  <script src="js/catalogo.js?v=9"></script>
-  <script src="js/store.js?v=9"></script>
-  <script src="js/demo.js?v=9"></script>
-  <script src="js/nuvem.js?v=9"></script>
-  <script src="js/db.js?v=9"></script>
-  <script src="js/avisos.js?v=9"></script>
-  <script src="js/telas/balcao.js?v=9"></script>
-  <script src="js/telas/entrada.js?v=9"></script>
-  <script src="js/telas/patio.js?v=9"></script>
-  <script src="js/telas/clientes.js?v=9"></script>
-  <script src="js/telas/inicio.js?v=9"></script>
-  <script src="js/telas/resultados.js?v=9"></script>
-  <script src="js/telas/financeiro.js?v=9"></script>
-  <script src="js/telas/ajustes.js?v=9"></script>
-  <script src="js/telas/admin.js?v=9"></script>
-  <script src="js/telas/agenda.js?v=9"></script>
-  <script src="js/telas/ajuda.js?v=9"></script>
-  <script src="js/app.js?v=9"></script>
+  <script src="js/config.js?v=10"></script>
+  <script src="js/util.js?v=10"></script>
+  <script src="js/catalogo.js?v=10"></script>
+  <script src="js/store.js?v=10"></script>
+  <script src="js/demo.js?v=10"></script>
+  <script src="js/nuvem.js?v=10"></script>
+  <script src="js/db.js?v=10"></script>
+  <script src="js/avisos.js?v=10"></script>
+  <script src="js/telas/balcao.js?v=10"></script>
+  <script src="js/telas/entrada.js?v=10"></script>
+  <script src="js/telas/patio.js?v=10"></script>
+  <script src="js/telas/clientes.js?v=10"></script>
+  <script src="js/telas/inicio.js?v=10"></script>
+  <script src="js/telas/resultados.js?v=10"></script>
+  <script src="js/telas/financeiro.js?v=10"></script>
+  <script src="js/telas/ajustes.js?v=10"></script>
+  <script src="js/telas/admin.js?v=10"></script>
+  <script src="js/telas/agenda.js?v=10"></script>
+  <script src="js/telas/ajuda.js?v=10"></script>
+  <script src="js/app.js?v=10"></script>
   <script>
     // permite instalar como aplicativo e abrir sem internet (só funciona em http/https)
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

@@ -5,7 +5,7 @@
   },
   "hosting": [
     {
-      "site": "lava-rapido-enzo",
+      "site": "lavarapido",
       "public": ".",
       "ignore": [
         "firebase.json",
@@ -28,6 +28,40 @@
               "value": "no-cache"
             }
           ]
+        }
+      ],
+      "rewrites": [
+        {
+          "source": "**",
+          "destination": "/index.html"
+        }
+      ]
+    },
+    {
+      "site": "lava-rapido-enzo",
+      "public": ".",
+      "ignore": [
+        "firebase.json",
+        ".firebaserc",
+        "firestore.*",
+        "**/.*",
+        "**/node_modules/**",
+        "testes/**",
+        "supabase/**",
+        "docs/**",
+        "README.md",
+        "LICENSE"
+      ],
+      "redirects": [
+        {
+          "source": "/c/",
+          "destination": "https://lavarapido.web.app/c/",
+          "type": 301
+        },
+        {
+          "source": "**",
+          "destination": "https://lavarapido.web.app/",
+          "type": 301
         }
       ]
     },
@@ -46,15 +80,16 @@
         "README.md",
         "LICENSE"
       ],
-      "headers": [
+      "redirects": [
         {
-          "source": "**/*.@(js|css|html|webmanifest)",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache"
-            }
-          ]
+          "source": "/c/",
+          "destination": "https://lavarapido.web.app/c/",
+          "type": 301
+        },
+        {
+          "source": "**",
+          "destination": "https://lavarapido.web.app/",
+          "type": 301
         }
       ]
     },
@@ -73,15 +108,16 @@
         "README.md",
         "LICENSE"
       ],
-      "headers": [
+      "redirects": [
         {
-          "source": "**/*.@(js|css|html|webmanifest)",
-          "headers": [
-            {
-              "key": "Cache-Control",
-              "value": "no-cache"
-            }
-          ]
+          "source": "/c/",
+          "destination": "https://lavarapido.web.app/c/",
+          "type": 301
+        },
+        {
+          "source": "**",
+          "destination": "https://lavarapido.web.app/",
+          "type": 301
         }
       ]
     }

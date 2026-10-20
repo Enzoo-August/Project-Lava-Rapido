@@ -48,16 +48,8 @@ Em Administração, toque no lava para mudar **Pago até** ou desligar **Assinat
 
 Guarde logo, tabela de preços e anotações de cada lava em `Projeto Lava Rápido/Clientes/<nome do lava>/`. Senhas não vão para arquivo.
 
-## Endereço próprio do lava (grátis)
+## Endereço (um só para todos)
 
-Cada lava pode ter um endereço `nome.web.app` que já abre com a marca dele, sem `?l=`:
+Todos entram por **https://lavarapido.web.app**. A tela de entrada é igual para todos ("Lava Rápido" com a gota). Depois de entrar, o endereço mostra de quem é: `lavarapido.web.app/administracao` para o administrador e `lavarapido.web.app/SLUG` para cada lava (ex.: `/garagem-z`). Ao sair, volta para `lavarapido.web.app`. Não é preciso criar nada por cliente: o `slug` do lava, definido ao cadastrar, é o que aparece no endereço.
 
-1. `npx -y firebase-tools@latest hosting:sites:create lava-rapido-NOME --project lava-rapido-enzo`
-2. Em `firebase.json`, copie o bloco de um site e troque o `"site"` para `NOME`.
-3. Em `js/config.js`, em `sites`, ligue `NOME.web.app` (e `NOME.firebaseapp.com`) ao endereço do lava (o `slug`).
-4. Autorize `NOME.web.app` no login do Firebase (Authentication → Configurações → Domínios autorizados).
-5. Publique: `npx -y firebase-tools@latest deploy --only hosting`.
-
-Padrão de nome: `lava-rapido-NOME` (tudo junto, sem acento). Exemplo: A Garagem Z → https://lava-rapido-garagemz.web.app (o antigo agaragemz.web.app continua funcionando).
-
-Endereço com `.com.br` (ex.: `agaragemz.com.br`) precisa comprar o domínio (cerca de R$ 40 por ano no registro.br) e ligar em Hosting → Adicionar domínio personalizado.
+Os endereços antigos (lava-rapido-enzo, agaragemz, lava-rapido-garagemz) redirecionam para o novo. Endereço com `.com.br` (cerca de R$ 40 por ano no registro.br) pode ser ligado ao site `lavarapido` em Hosting → Adicionar domínio personalizado.

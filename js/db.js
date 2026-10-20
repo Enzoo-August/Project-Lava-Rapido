@@ -245,7 +245,7 @@
   };
 
   // ---------------- mensagens do WhatsApp ----------------
-  DB.linkAcompanhar = (a) => new URL('c/?t=' + a.token + (Store.modo === 'demo' ? '&demo=1' : ''), location.href.split('#')[0].split('?')[0]).href;
+  DB.linkAcompanhar = (a) => new URL('c/?t=' + a.token + (Store.modo === 'demo' ? '&demo=1' : ''), location.origin + '/').href;
   DB.msg = (tipo, a, c) => {
     c = c || DB.cliente(a && a.cliente_id) || {};
     const v = a ? null : DB.veiculosDe(c.id)[0];
