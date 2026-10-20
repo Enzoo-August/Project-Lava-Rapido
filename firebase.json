@@ -1,17 +1,89 @@
 {
-  "firestore": { "rules": "firestore.rules", "indexes": "firestore.indexes.json" },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
   "hosting": [
     {
       "site": "lava-rapido-enzo",
       "public": ".",
-      "ignore": ["firebase.json", ".firebaserc", "firestore.*", "**/.*", "**/node_modules/**", "testes/**", "supabase/**", "docs/**", "README.md", "LICENSE"],
-      "headers": [{ "source": "**/*.@(js|css|html|webmanifest)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+      "ignore": [
+        "firebase.json",
+        ".firebaserc",
+        "firestore.*",
+        "**/.*",
+        "**/node_modules/**",
+        "testes/**",
+        "supabase/**",
+        "docs/**",
+        "README.md",
+        "LICENSE"
+      ],
+      "headers": [
+        {
+          "source": "**/*.@(js|css|html|webmanifest)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        }
+      ]
     },
     {
       "site": "agaragemz",
       "public": ".",
-      "ignore": ["firebase.json", ".firebaserc", "firestore.*", "**/.*", "**/node_modules/**", "testes/**", "supabase/**", "docs/**", "README.md", "LICENSE"],
-      "headers": [{ "source": "**/*.@(js|css|html|webmanifest)", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+      "ignore": [
+        "firebase.json",
+        ".firebaserc",
+        "firestore.*",
+        "**/.*",
+        "**/node_modules/**",
+        "testes/**",
+        "supabase/**",
+        "docs/**",
+        "README.md",
+        "LICENSE"
+      ],
+      "headers": [
+        {
+          "source": "**/*.@(js|css|html|webmanifest)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "site": "lava-rapido-garagemz",
+      "public": ".",
+      "ignore": [
+        "firebase.json",
+        ".firebaserc",
+        "firestore.*",
+        "**/.*",
+        "**/node_modules/**",
+        "testes/**",
+        "supabase/**",
+        "docs/**",
+        "README.md",
+        "LICENSE"
+      ],
+      "headers": [
+        {
+          "source": "**/*.@(js|css|html|webmanifest)",
+          "headers": [
+            {
+              "key": "Cache-Control",
+              "value": "no-cache"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

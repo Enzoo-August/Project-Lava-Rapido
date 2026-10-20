@@ -204,10 +204,10 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 .bloco-n { position: absolute; top: 10px; left: 16px; font-size: clamp(46px, 14vw, 64px); font-weight: 800; line-height: 1; }
 .bloco-ic { position: absolute; top: 14px; left: 14px; width: 60px; height: 60px; border-radius: 50%; background: rgba(255, 255, 255, .22); display: grid; place-items: center; }
 .bloco-ic .ic { width: 36px; height: 36px; stroke-width: 2.6; }
-.bloco.chegou { background: var(--chegou-bg, var(--marca)); color: var(--chegou-tx, var(--marca-txt)); }
-.bloco.chegou .bloco-ic { background: var(--chegou-ic, rgba(255, 255, 255, .22)); color: var(--chegou-ic-tx, currentColor); }
+/* cores fixas, iguais em todos os lavas (a marca do lava fica no topo, logo e botões) */
+.bloco.chegou { background: #0b63ce; }
 .bloco.patio { background: #b45309; }
-.bloco.prontos { background: var(--ok); }
+.bloco.prontos { background: #15803d; }
 .bloco.entregues { background: #46536a; }
 .bloco-alerta { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 4px; background: #fff; color: #c62828; font-size: 12px; font-weight: 800; padding: 4px 8px; border-radius: 99px; }
 .bloco-alerta .ic { width: 14px; height: 14px; }

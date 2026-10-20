@@ -52,12 +52,12 @@ Guarde logo, tabela de preços e anotações de cada lava em `Projeto Lava Rápi
 
 Cada lava pode ter um endereço `nome.web.app` que já abre com a marca dele, sem `?l=`:
 
-1. `npx -y firebase-tools@latest hosting:sites:create NOME --project lava-rapido-enzo`
+1. `npx -y firebase-tools@latest hosting:sites:create lava-rapido-NOME --project lava-rapido-enzo`
 2. Em `firebase.json`, copie o bloco de um site e troque o `"site"` para `NOME`.
 3. Em `js/config.js`, em `sites`, ligue `NOME.web.app` (e `NOME.firebaseapp.com`) ao endereço do lava (o `slug`).
 4. Autorize `NOME.web.app` no login do Firebase (Authentication → Configurações → Domínios autorizados).
 5. Publique: `npx -y firebase-tools@latest deploy --only hosting`.
 
-Exemplo: A Garagem Z → https://agaragemz.web.app
+Padrão de nome: `lava-rapido-NOME` (tudo junto, sem acento). Exemplo: A Garagem Z → https://lava-rapido-garagemz.web.app (o antigo agaragemz.web.app continua funcionando).
 
 Endereço com `.com.br` (ex.: `agaragemz.com.br`) precisa comprar o domínio (cerca de R$ 40 por ano no registro.br) e ligar em Hosting → Adicionar domínio personalizado.
