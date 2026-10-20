@@ -19,5 +19,5 @@ window.LAVA_CFG = {
   sitePrincipal: 'https://lava-rapido-enzo.web.app',
   // WhatsApp de quem dá suporte ao sistema (aparece na Ajuda e no aviso de assinatura). Só números, com DDD.
   suporte: '',
-  versao: 7
+  versao: 8
 };
