@@ -14,7 +14,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="32x32" href="assets/icons/favicon-32.png">
   <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="css/app.css?v=4">
+  <link rel="stylesheet" href="css/app.css?v=5">
   <script>
     // aparência escolhida neste aparelho (clara, escura ou automática), aplicada antes de pintar a tela
     try { var t = JSON.parse(localStorage.getItem('lr.pref.tema') || '"claro"'); if (t === 'escuro' || (t === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches)) document.documentElement.setAttribute('data-tema', 'escuro'); } catch (e) {}
@@ -42,25 +42,26 @@
   <div id="modalRoot"></div>
   <div id="toastRoot" class="toasts" aria-live="polite"></div>
 
-  <script src="js/config.js?v=4"></script>
-  <script src="js/util.js?v=4"></script>
-  <script src="js/catalogo.js?v=4"></script>
-  <script src="js/store.js?v=4"></script>
-  <script src="js/demo.js?v=4"></script>
-  <script src="js/nuvem.js?v=4"></script>
-  <script src="js/db.js?v=4"></script>
-  <script src="js/telas/balcao.js?v=4"></script>
-  <script src="js/telas/entrada.js?v=4"></script>
-  <script src="js/telas/patio.js?v=4"></script>
-  <script src="js/telas/clientes.js?v=4"></script>
-  <script src="js/telas/inicio.js?v=4"></script>
-  <script src="js/telas/resultados.js?v=4"></script>
-  <script src="js/telas/financeiro.js?v=4"></script>
-  <script src="js/telas/ajustes.js?v=4"></script>
-  <script src="js/telas/admin.js?v=4"></script>
-  <script src="js/telas/agenda.js?v=4"></script>
-  <script src="js/telas/ajuda.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="js/config.js?v=5"></script>
+  <script src="js/util.js?v=5"></script>
+  <script src="js/catalogo.js?v=5"></script>
+  <script src="js/store.js?v=5"></script>
+  <script src="js/demo.js?v=5"></script>
+  <script src="js/nuvem.js?v=5"></script>
+  <script src="js/db.js?v=5"></script>
+  <script src="js/avisos.js?v=5"></script>
+  <script src="js/telas/balcao.js?v=5"></script>
+  <script src="js/telas/entrada.js?v=5"></script>
+  <script src="js/telas/patio.js?v=5"></script>
+  <script src="js/telas/clientes.js?v=5"></script>
+  <script src="js/telas/inicio.js?v=5"></script>
+  <script src="js/telas/resultados.js?v=5"></script>
+  <script src="js/telas/financeiro.js?v=5"></script>
+  <script src="js/telas/ajustes.js?v=5"></script>
+  <script src="js/telas/admin.js?v=5"></script>
+  <script src="js/telas/agenda.js?v=5"></script>
+  <script src="js/telas/ajuda.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
   <script>
     // permite instalar como aplicativo e abrir sem internet (só funciona em http/https)
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {

@@ -460,3 +460,14 @@ button { cursor: pointer; background: none; border: 0; padding: 0; text-align: i
 .secao-patio h3 { font-size: 17px; display: flex; align-items: center; gap: 8px; margin-top: 4px; }
 .secao-patio h3 span { background: var(--marca); color: var(--marca-txt); border-radius: 99px; font-size: 13px; padding: 1px 9px; }
 .secao-patio .mudo { margin-top: -6px; }
+
+/* avisos (sininho e faixa com som) */
+.sino { position: relative; }
+.sino-n { position: absolute; top: 4px; right: 3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--aviso); color: #fff; font: 800 11px/18px system-ui, sans-serif; font-style: normal; text-align: center; }
+.sino-n.urgente { background: #c62828; }
+.alerta-aviso { position: fixed; z-index: 9; left: 12px; right: 12px; top: calc(66px + var(--sat)); max-width: 560px; margin: 0 auto; display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: 16px; background: var(--sup); color: var(--tinta); box-shadow: 0 10px 30px rgba(0, 0, 0, .28); border-left: 6px solid var(--aviso); animation: sobe .25s ease-out; }
+.alerta-aviso.atraso { border-left-color: #c62828; } .alerta-aviso.agenda { border-left-color: var(--marca); }
+.alerta-aviso > .ic { width: 28px; height: 28px; color: var(--aviso); flex: none; } .alerta-aviso.atraso > .ic { color: #c62828; }
+.alerta-aviso > div { display: grid; flex: 1; min-width: 0; } .alerta-aviso small { color: var(--mudo); font-size: 13px; }
+.lista-menu .aviso-atraso .ic:first-child { color: #c62828; }
+.pergunte { margin: -4px 0 6px; font-style: italic; }

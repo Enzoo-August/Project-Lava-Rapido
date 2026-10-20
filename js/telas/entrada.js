@@ -9,7 +9,8 @@
 
   const novo = () => ({ passo: 'placa', placa: '', veic: null, existente: false, cli: null, cliNovo: { nome: '', telefone: '' }, ids: [], extras: [], vals: {}, valor: null, nivel: null, previsao: null, previsaoEm: null, obs: '', busca: '', porteLivre: null, feito: null, ag: null });
   const TECLAS = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
-  const OBS_RAPIDAS = ['Já tem risco ou amassado', 'Objetos de valor no carro', 'Cliente espera no local', 'Chave fica no lava-rápido'];
+  const OBS_RAPIDAS = ['Já tem risco ou amassado', 'Objetos de valor no carro', 'Chave fica no lava-rápido'];
+  const ESPERA = 'Cliente espera no local';
   const PREVISOES = [[30, '30 min'], [60, '1 hora'], [90, '1h30'], [120, '2 horas'], [180, '3 horas'], [300, '5 horas']];
 
   const ir = (passo) => { E.passo = passo; desenhar(); window.scrollTo(0, 0); };
@@ -218,15 +219,16 @@
       ${fidelidadeHtml()}
       <div class="servs">${Atend.servicosHtml(E.veic.porte, E.ids, E.vals)}${Atend.extrasHtml(E.extras)}
         <button type="button" class="serv livre" data-acao="extra">${U.icon('mais')}<span class="serv-nome"><b>Outro serviço</b><small>escrever o nome e o valor</small></span></button></div>
-      <p class="rotulo">Fica pronto quando?</p>
-      <div class="chips previsoes">${PREVISOES.map(([m, txt]) => `<button type="button" class="chip${!E.previsaoEm && E.previsao === m ? ' ativo' : ''}" data-prev="${m}">${txt}</button>`).join('')}
-        <button type="button" class="chip${E.previsaoEm ? ' ativo' : ''}" data-acao="outrodia">${E.previsaoEm ? U.capitalizar(quandoTxt(E.previsaoEm)) : 'Outro dia'}</button></div>
+      <p class="rotulo">Quando o cliente vem buscar?</p>
+      <p class="mudo pequeno pergunte">Pergunte: “O senhor vai esperar aqui ou tem um horário para buscar?”</p>
+      <div class="chips previsoes"><button type="button" class="chip${E.obs.includes(ESPERA) ? ' ativo' : ''}" data-acao="espera">${U.icon('pessoas')} Vai esperar aqui</button>${PREVISOES.map(([m, txt]) => `<button type="button" class="chip${!E.previsaoEm && E.previsao === m ? ' ativo' : ''}" data-prev="${m}">${txt}</button>`).join('')}
+        <button type="button" class="chip${E.previsaoEm ? ' ativo' : ''}" data-acao="outrodia">${E.previsaoEm ? U.capitalizar(quandoTxt(E.previsaoEm)) : 'Escolher horário'}</button></div>
       <p class="rotulo">Observação <span class="mudo">(se precisar)</span></p>
       <div class="chips">${OBS_RAPIDAS.map((o) => `<button type="button" class="chip${E.obs.includes(o) ? ' ativo' : ''}" data-obs="${U.esc(o)}">${o}</button>`).join('')}</div>
       <div class="pe-fixo">
         <div class="pe-total">
           <span>${t.desconto ? `<s>${U.brl(t.valor)}</s> ` : ''}<b>${U.brl(t.total)}</b>${t.desconto ? ` <em>−${E.nivel.desconto}%</em>` : ''}</span>
-          <small>pronto ${quandoTxt(quandoFica())}</small>
+          <small>${E.obs.includes(ESPERA) ? 'espera no local · pronto' : 'cliente vem'} ${quandoTxt(quandoFica())}</small>
           ${podeValor ? '<button type="button" class="link" data-acao="valor">ajustar valor</button>' : ''}
         </div>
         <button class="btn btn-ok btn-g" type="button" data-acao="confirmar" ${temServico ? '' : 'disabled'}>${U.icon('check')}<span>Confirmar</span></button>
@@ -257,7 +259,7 @@
       <h2 class="pergunta">Entrada registrada!</h2>
       <div class="feito-ficha"><small>Ficha</small><b>${a.numero}</b></div>
       <div class="resumo-carro grande centro">${U.placaHtml(a.placa)}<div><b>${U.esc(a.veiculo)}</b><small>${U.esc(c.nome)}</small></div></div>
-      <p class="centro">${U.esc(a.servicos.map((s) => s.nome).join(' + '))} · <b>${U.brl(a.total)}</b><br>Previsão: <b>${quandoTxt(a.previsao)}</b></p>
+      <p class="centro">${U.esc(a.servicos.map((s) => s.nome).join(' + '))} · <b>${U.brl(a.total)}</b><br>${a.obs && a.obs.includes(ESPERA) ? 'Cliente espera no local · pronto' : 'Cliente vem buscar'} <b>${quandoTxt(a.previsao)}</b></p>
       ${fid ? `<p class="fidel-linha">${U.icon('presente')}<span>${fid}</span></p>` : ''}
       <p class="fala">Pode dizer: “Pronto, ${U.esc(U.primeiroNome(c.nome))}! Aviso no WhatsApp quando terminar.”</p>
       <div class="pilha">
@@ -309,10 +311,16 @@
     if (acao === 'confirmar') { b.disabled = true; return confirmar(); }
     if (acao === 'outro') { E = novo(); return ir('placa'); }
     if (acao === 'extra') { const x = await Atend.pedirServicoLivre(); if (x) { E.extras = [...E.extras, x]; E.valor = null; desenhar(); } return; }
+    if (acao === 'espera') {
+      const l = E.obs ? E.obs.split(' · ') : [];
+      if (l.includes(ESPERA)) E.obs = l.filter((x) => x !== ESPERA).join(' · ');
+      else { E.obs = [...l, ESPERA].join(' · '); E.previsaoEm = null; E.previsao = previsaoPadrao(DB.minutos(E.ids)); }
+      return desenhar();
+    }
     if (acao === 'outrodia') {
-      const d = new Date(E.previsaoEm || amanha18());
+      const d = new Date(E.previsaoEm || (DB.minutos(E.ids) > 300 ? amanha18() : Math.ceil((Date.now() + 2 * 3600e3) / 1800e3) * 1800e3));
       const r = await U.modal({
-        titulo: 'Fica pronto quando?',
+        titulo: 'Quando o cliente vem buscar?',
         html: `<div class="lado"><label class="campo"><span>Dia</span><input name="dia" type="date" value="${U.dia(d)}" min="${U.dia()}"></label><label class="campo"><span>Hora</span><input name="hora" type="time" value="${U.hora(d)}"></label></div>`,
         acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Salvar', cls: 'btn-marca', aoTocar: (el) => { const f = U.campos(el); if (!f.dia || !f.hora) { U.toast('Informe o dia e a hora.', 'bad'); return false; } const q = U.deDia(f.dia); q.setHours(Number(f.hora.slice(0, 2)), Number(f.hora.slice(3, 5)), 0, 0); return q.toISOString(); } }]
       });

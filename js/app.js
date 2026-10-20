@@ -196,7 +196,8 @@
     window.onhashchange = () => App.render();
     App.render();
     if (!DEMO) Nuvem.status();
-    setInterval(() => { if (!document.hidden) App.aoMudar(true); }, 60000);   // atualiza os "há 12 min" da tela
+    setInterval(() => { if (!document.hidden) App.aoMudar(true); }, 60000);
+    Avisos.iniciar();   // atualiza os "há 12 min" da tela
     if (window.Telas.ajuda && Telas.ajuda.boasVindas) Telas.ajuda.boasVindas();
   }
 
@@ -244,11 +245,13 @@
       ? `<div class="topo-marca">${App.logoHtml(m, nome)}<div><b>${U.esc(home ? nome : tituloDe(tela))}</b><small>${U.esc(home ? saudacao() + ', ' + U.primeiroNome(u.nome) : nome)}</small></div></div>`
       : `<button class="ic-btn voltar" id="btVoltar" aria-label="Voltar">${U.icon('voltar')}</button><h1 class="topo-titulo">${U.esc(tituloDe(tela))}</h1>`;
     $('topo').innerHTML = `${esquerda}<div class="topo-acoes">
-      ${DEMO ? '<span class="chip-st demo">Demonstração</span>' : '<span id="nuvemSt" class="chip-st" hidden></span>'}
+      ${DEMO ? '<span class="chip-st demo" title="Demonstração com dados de exemplo">Demo</span>' : '<span id="nuvemSt" class="chip-st" hidden></span>'}
+      ${u.perfil !== 'admin' ? `<button class="ic-btn sino" id="btSino" aria-label="Avisos">${U.icon('sino')}</button>` : ''}
       ${u.perfil !== 'dono' ? `<button class="ic-btn" id="btMenu" aria-label="Menu">${U.icon('menu')}</button>` : ''}
     </div>`;
     const bv = $('btVoltar'); if (bv) bv.onclick = () => (tela.aoVoltar ? tela.aoVoltar() : App.voltar());
     const bm = $('btMenu'); if (bm) bm.onclick = menuFuncionario;
+    const bs = $('btSino'); if (bs) { bs.onclick = () => Avisos.painel(); Avisos.pintarSino(); }
     if (!DEMO) Nuvem.status();
   }
   // o título pode ser um texto ou uma função (que depende da aba aberta)

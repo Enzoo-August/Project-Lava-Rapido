@@ -16,7 +16,8 @@
     if (a.status === 'pronto') return `Pronto ${U.haQuanto(a.pronto_em)}${a.avisado_em ? ' · cliente avisado' : ''}`;
     // carro que fica mais de um dia mostra a data, não só a hora
     const q = (d) => U.dataHora(d).replace('hoje ', '');
-    const prev = a.previsao ? (DB.atrasado(a) ? `<b class="atraso">atrasado (era ${q(a.previsao)})</b>` : `previsão ${q(a.previsao)}`) : '';
+    const espera = a.obs && a.obs.includes('Cliente espera no local');
+    const prev = a.previsao ? (DB.atrasado(a) ? `<b class="atraso">atrasado · cliente vinha ${q(a.previsao)}</b>` : espera ? `<b>cliente espera aqui</b> · pronto ${q(a.previsao)}` : `cliente vem ${q(a.previsao)}`) : '';
     return `Chegou ${q(a.entrada_em)} (${U.haQuanto(a.entrada_em)})${prev ? ' · ' + prev : ''}`;
   };
 
