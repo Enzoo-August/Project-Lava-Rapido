@@ -477,3 +477,22 @@ body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none
 input, textarea, select, [contenteditable="true"], .selecionavel { -webkit-user-select: text; user-select: text; -webkit-touch-callout: default; }
 body *:not(input):not(textarea):not(select) { caret-color: transparent; }
 .tela:focus, main:focus { outline: none; }
+
+/* ---------- produtos: estoque e pedido de compra ---------- */
+.linha.prod { flex-wrap: wrap; gap: 8px 12px; }
+.linha.prod .linha-txt { flex: 1 1 150px; text-align: left; }
+.linha.prod.acabando .linha-txt b { color: var(--perigo); }
+.linha.prod.acabando .qtd b { background: var(--perigo); color: #fff; }
+.qtd { display: inline-flex; align-items: center; gap: 4px; background: var(--linha2); border-radius: 12px; padding: 3px; }
+.qtd .ic-btn { width: 40px; height: 40px; min-height: 40px; font-size: 22px; font-weight: 700; background: var(--sup); border-radius: 9px; }
+.qtd b { min-width: 34px; text-align: center; font-variant-numeric: tabular-nums; border-radius: 8px; padding: 2px 4px; }
+.linha.prod .sub { min-width: 84px; text-align: right; }
+.btn.no-pedido { color: var(--ok); }
+.aviso-caixa .btn { margin-left: auto; flex: none; }
+.alerta-aviso { flex-wrap: wrap; }
+.alerta-aviso > div { flex: 1 1 180px; }
+.alerta-aviso.agenda-atraso { border-left-color: #c62828; } .alerta-aviso.agenda-atraso > .ic { color: #c62828; }
+.alerta-botoes { display: flex; gap: 6px; flex-wrap: wrap; }
+.alerta-aviso { padding-right: 46px; }
+.alerta-aviso > [data-fechar-aviso] { position: absolute; top: 6px; right: 6px; }
+@media (max-width: 560px) { .linha.prod .linha-txt { flex-basis: 100%; } .linha.prod [data-pedir], .linha.prod .sub { margin-left: auto; } }

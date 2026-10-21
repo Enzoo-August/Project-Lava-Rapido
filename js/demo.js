@@ -153,6 +153,11 @@
         .forEach(([categoria, descricao, valor, d]) => { if (em(d) <= s.dia) s.despesas.push({ id: id(), lava_id: LAVA, data: em(d), categoria, descricao, valor, excluido: false }); });
     }
 
+    // produtos do estoque (alguns acabando, para mostrar o pedido de compra)
+    [['Shampoo automotivo', 'galão 5 L', 89.9, 1, 2, 'Distribuidora Brilho'], ['Cera líquida', 'frasco 1 L', 54.9, 4, 2, 'Distribuidora Brilho'], ['Pretinho para pneu', 'galão 5 L', 72, 0, 1, 'Distribuidora Brilho'],
+      ['Desengraxante (APC)', 'galão 5 L', 65, 3, 1, 'Química Total'], ['Limpa-vidros', 'frasco 500 ml', 18.5, 6, 3, ''], ['Pano de microfibra', 'un', 9.9, 8, 10, ''], ['Esponja', 'un', 4.5, 12, 6, '']]
+      .forEach(([nome, unidade, preco, estoque, minimo, fornecedor]) => s.produtos.push({ id: id(), lava_id: LAVA, nome, unidade, preco, estoque, minimo, fornecedor, excluido: false, criado_em: new Date().toISOString() }));
+
     Demo.recalcular(s);
     return s;
   };

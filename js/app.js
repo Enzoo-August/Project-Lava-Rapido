@@ -183,6 +183,7 @@
     { r: 'clientes', txt: 'Clientes', ic: 'pessoas', perfis: ['dono'], mais: true },
     { r: 'resultados', txt: 'Resultados', ic: 'grafico', perfis: ['dono'] },
     { r: 'financeiro', txt: 'Financeiro', ic: 'carteira', perfis: ['dono'], mais: true },
+    { r: 'produtos', txt: 'Produtos', ic: 'caixa', perfis: ['dono'], mais: true },
     { r: 'ajustes', txt: 'Ajustes', ic: 'ajustes', perfis: ['dono'], mais: true },
     { r: 'ajuda', txt: 'Ajuda', ic: 'ajuda', perfis: ['dono'], mais: true }
   ];

@@ -44,6 +44,7 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - **Lembrar:** WhatsApp com o lembrete do horário já escrito.
 - **Chegou:** abre a entrada do carro já preenchida com cliente, carro e serviço combinados. O horário fica marcado como "chegou".
 - Também: mudar dia/hora, "não veio" e cancelar.
+- **Aviso com som:** 30 minutos antes de um horário em que o cliente ainda não chegou e de novo quando dá a hora marcada, com botões de WhatsApp (mensagem pronta) e Ligar. Pode aparecer também como notificação do celular, com o aplicativo aberto.
 - Aparece no balcão (faixa "Agenda de hoje"), no menu do funcionário e no Início do dono.
 - Ajuda em 5 passos e instruções para instalar no celular.
 
@@ -64,6 +65,7 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - **Resultados:** hoje, 7 dias, mês, mês passado, 90 dias, com comparação. Frases prontas ("sábado é o dia mais forte"), movimento por dia, serviços mais vendidos, horários de pico, dias da semana, formas de pagamento, tamanho dos veículos, quem lavou.
 - **Financeiro:** entrou, saiu, sobrou. Despesas, movimento dia a dia e planilha do mês.
 - **Clientes:** busca por nome, telefone ou placa; filtros Com prêmio, Quase lá, Sumidos, Novos; ficha com histórico; chamar de volta pelo WhatsApp.
+- **Produtos:** cadastro dos produtos (nome, valor, embalagem, fornecedor) com a quantidade em estoque; botões − e + para gastar e repor; aviso de produto acabando. **Pedido de compra:** põe no pedido o que falta, ajusta as quantidades e gera um PDF com a logo do lava (compartilha no WhatsApp pelo celular). Quando o pedido chega, um toque soma tudo no estoque.
 - **Ajustes:** marca (nome, logo, cor, barra do alto clara, preta ou na cor da marca, telefone, link do Google), serviços e preços, fidelidade, textos das mensagens, equipe e acessos, formas de pagamento, etapas.
 
 ### Administrador (quem vende)

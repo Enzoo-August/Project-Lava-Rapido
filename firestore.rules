@@ -63,6 +63,15 @@ service cloud.firestore {
         allow read: if dono(l);
         allow create, update: if dono(l) && lavaAtivo(l);
       }
+      // produtos (estoque) e pedidos de compra: só o dono
+      match /produtos/{id} {
+        allow read: if dono(l);
+        allow create, update: if dono(l) && lavaAtivo(l) && request.resource.data.lava_id == l;
+      }
+      match /pedidos/{id} {
+        allow read: if dono(l);
+        allow create, update: if dono(l) && lavaAtivo(l) && request.resource.data.lava_id == l;
+      }
       // ficha do dia (número sem repetir entre aparelhos)
       match /contadores/{dia} {
         allow read, write: if membro(l) && lavaAtivo(l);

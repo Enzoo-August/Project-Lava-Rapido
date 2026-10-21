@@ -89,6 +89,11 @@ caso('dono: muda a marca pública', 'ALLOW', 'dono', 'update', 'marcas/lava-l', 
 caso('dono: NÃO muda a marca de outro lava', 'DENY', 'dono', 'update', 'marcas/lava-l2', { lava_id: 'L2', nome: 'Hack' }, { lava_id: 'L2', nome: 'B' });
 caso('dono: muda preços', 'ALLOW', 'dono', 'update', 'lavas/L/servicos/s1', { nome: 'X', precos: { p: 50 } }, { nome: 'X', precos: { p: 40 } });
 caso('dono: vê e lança despesas', 'ALLOW', 'dono', 'create', 'lavas/L/despesas/d1', { lava_id: 'L', valor: 300 });
+caso('dono: cadastra produto', 'ALLOW', 'dono', 'create', 'lavas/L/produtos/p1', { lava_id: 'L', nome: 'Shampoo', estoque: 2 });
+caso('dono: lê pedido de compra', 'ALLOW', 'dono', 'get', 'lavas/L/pedidos/x1', null, { lava_id: 'L', total: 90 });
+caso('dono: NÃO cria produto em outro lava', 'DENY', 'dono', 'create', 'lavas/L2/produtos/p1', { lava_id: 'L2', nome: 'X' });
+caso('funcionário: NÃO vê produtos', 'DENY', 'func', 'get', 'lavas/L/produtos/p1', null, { lava_id: 'L', nome: 'Shampoo' });
+caso('funcionário: NÃO cria pedido', 'DENY', 'func', 'create', 'lavas/L/pedidos/x1', { lava_id: 'L', total: 10 });
 caso('dono: cria acesso de funcionário no lava dele', 'ALLOW', 'dono', 'create', 'usuarios/x', { perfil: 'funcionario', ativo: true, lava_id: 'L' });
 caso('dono: NÃO cria admin', 'DENY', 'dono', 'create', 'usuarios/x', { perfil: 'admin', ativo: true, lava_id: 'L' });
 caso('dono: NÃO cria acesso em outro lava', 'DENY', 'dono', 'create', 'usuarios/x', { perfil: 'dono', ativo: true, lava_id: 'L2' });

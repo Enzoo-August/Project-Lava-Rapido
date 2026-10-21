@@ -123,6 +123,8 @@
     calendario: '<rect x="3.500" y="5" width="17" height="15.500" rx="2"/><path d="M3.500 10h17M8 3v4M16 3v4M8 14h2.500M13.500 14H16M8 17.500h2.500"/>',
     sino: '<path d="M6 16V11a6 6 0 0112 0v5l1.500 2h-15L6 16z"/><path d="M10 20.500a2.200 2.200 0 004 0"/>',
     lua: '<path d="M20 14.500A8 8 0 019.500 4a7 7 0 1010.500 10.500z"/>',
+    caixa: '<path d="M3.500 7.500L12 3l8.500 4.500v9L12 21l-8.500-4.500v-9z"/><path d="M3.500 7.500L12 12l8.500-4.500M12 12v9"/>',
+    carrinho: '<path d="M3 4h2.500l2.200 10.500h10L20 7.500H6.300"/><circle cx="9" cy="19" r="1.400"/><circle cx="17" cy="19" r="1.400"/>',
     bandeira: '<path d="M5 21V4M5 4.500h12l-2.500 4 2.500 4H5"/>'
   };
   U.icon = (nome, cls) => `<svg class="ic ${cls || ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.900" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[nome] || ''}</svg>`;

@@ -15,6 +15,7 @@
   const DONO = [
     ['Início', 'Mostra quanto entrou hoje, quantos carros passaram e o que está no pátio agora, de onde você estiver.'],
     ['Resultados', 'Os gráficos: dias e horários mais fortes, serviços que mais vendem e formas de pagamento.'],
+    ['Produtos', 'Cadastre seus produtos com valor e quantidade. Quando faltar, toque em “Pedir” e gere o PDF do pedido com a sua logo para mandar ao fornecedor.'],
     ['Financeiro', 'Lance as despesas do mês (aluguel, água, luz, produtos) para ver quanto sobra de verdade.'],
     ['Clientes', 'Quem tem prêmio de fidelidade, quem está quase lá e quem sumiu, para chamar de volta pelo WhatsApp.'],
     ['Ajustes', 'Sua logo e cor, serviços e preços, regras da fidelidade, textos das mensagens e os acessos da equipe.']

@@ -209,6 +209,27 @@
     Object.assign(d, dados);
     return DB.gravar('despesas', d);
   };
+  // ---------------- produtos (estoque) e pedidos de compra ----------------
+  DB.produtos = () => Store.s.produtos.filter((p) => !p.excluido).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+  DB.acabando = (p) => Number(p.estoque) <= Number(p.minimo || 0);
+  DB.salvarProduto = (p, dados) => {
+    if (!p) p = { id: U.uuid(), lava_id: lavaId(), nome: '', unidade: 'un', preco: 0, estoque: 0, minimo: 0, fornecedor: '', excluido: false, criado_em: agoraIso() };
+    Object.assign(p, dados);
+    return DB.gravar('produtos', p);
+  };
+  DB.pedidos = () => Store.s.pedidos.filter((p) => !p.excluido).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
+  DB.salvarPedido = (p, dados) => {
+    if (!p) p = { id: U.uuid(), lava_id: lavaId(), numero: Store.s.pedidos.reduce((m, x) => Math.max(m, x.numero || 0), 0) + 1, itens: [], total: 0, fornecedor: '', obs: '', status: 'aberto', criado_por: App.user.nome, criado_em: agoraIso(), recebido_em: null, excluido: false };
+    Object.assign(p, dados);
+    p.total = (p.itens || []).reduce((t, i) => t + (Number(i.qtd) || 0) * (Number(i.preco) || 0), 0);
+    return DB.gravar('pedidos', p);
+  };
+  // pedido chegou: soma as quantidades no estoque (uma vez só)
+  DB.receberPedido = (p) => {
+    if (p.status === 'recebido') return p;
+    for (const i of p.itens || []) { const pr = Store.por('produtos', i.produto_id); if (pr) DB.salvarProduto(pr, { estoque: (Number(pr.estoque) || 0) + (Number(i.qtd) || 0) }); }
+    return DB.salvarPedido(p, { status: 'recebido', recebido_em: agoraIso() });
+  };
   DB.salvarServico = (s, dados) => {
     if (!s) s = { id: U.uuid(), lava_id: lavaId(), nome: '', precos: {}, minutos: 30, ordem: Store.s.servicos.reduce((m, x) => Math.max(m, x.ordem || 0), 0) + 1, ativo: true };
     Object.assign(s, dados);

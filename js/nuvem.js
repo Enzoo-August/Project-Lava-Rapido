@@ -207,12 +207,21 @@
     const L = 'lavas/' + user.lava_id, col = (t) => L + '/' + t;
     const lavaChegou = new Promise((res) => ouvintes.push(A.ouvirDoc(L, (d) => { Store.s.lava = { ...Store.s.lava, ...d }; App.aplicarMarca(); mudou(); res(); }, (e) => { falhaLeitura(e); res(); })));
     ouvintes.push(A.ouvir('usuarios', [['lava_id', '==', user.lava_id]], receber('equipe'), falhaLeitura));
-    for (const t of ['servicos', 'clientes', 'veiculos']) ouvintes.push(A.ouvir(col(t), [], receber(t), falhaLeitura));
+    // com a cópia do aparelho, só busca o que mudou depois dela (cada documento lido conta na cota grátis do banco)
+    const desde = (t) => {
+      const ult = temCopia ? (Store.s[t] || []).reduce((m, r) => (r.atualizado_em > m ? r.atualizado_em : m), '') : '';
+      return ult ? [['atualizado_em', '>=', new Date(new Date(ult).getTime() - 10 * 60000).toISOString()]] : [];
+    };
+    for (const t of ['servicos', 'clientes', 'veiculos']) ouvintes.push(A.ouvir(col(t), desde(t), receber(t), falhaLeitura));
     const doisDias = U.somaDias(U.inicioDia(), -2).toISOString();
     ouvintes.push(A.ouvir(col('atendimentos'), [['status', 'in', ABERTOS]], receber('atendimentos'), falhaLeitura));
     ouvintes.push(A.ouvir(col('atendimentos'), [['atualizado_em', '>=', doisDias]], receber('atendimentos'), falhaLeitura));
     ouvintes.push(A.ouvir(col('agendamentos'), [['quando', '>=', U.somaDias(U.inicioDia(), -7).toISOString()]], receber('agendamentos'), falhaLeitura));
-    if (user.perfil === 'dono') ouvintes.push(A.ouvir(col('despesas'), [['data', '>=', U.dia(U.somaDias(new Date(), -400))]], receber('despesas'), falhaLeitura));
+    if (user.perfil === 'dono') {
+      ouvintes.push(A.ouvir(col('despesas'), [['data', '>=', U.dia(U.somaDias(new Date(), -400))]], receber('despesas'), falhaLeitura));
+      ouvintes.push(A.ouvir(col('produtos'), desde('produtos'), receber('produtos'), falhaLeitura));
+      ouvintes.push(A.ouvir(col('pedidos'), [['criado_em', '>=', U.somaDias(U.inicioDia(), -120).toISOString()]], receber('pedidos'), falhaLeitura));
+    }
     if (!temCopia) {
       await Promise.race([lavaChegou, new Promise((r) => setTimeout(r, 15000))]);
       if (!Store.s.lava.id) throw new Error(N.erro || 'Sem internet para carregar os dados pela primeira vez.');
