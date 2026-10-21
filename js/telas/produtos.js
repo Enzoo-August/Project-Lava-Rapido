@@ -64,7 +64,7 @@
   });
 
   const gerarPdf = async (ped) => {
-    const [PDF, logo] = await Promise.all([carregarPdf(), logoPng(DB.marca().logo)]);
+    const [PDF, logo] = await Promise.all([carregarPdf(), logoPng(App.urlLogo(DB.marca().logo))]);
     const doc = new PDF({ unit: 'mm', format: 'a4' }), m = DB.marca(), lava = DB.lava().nome;
     const cor = U.hexRgb(m.cor) || [11, 99, 206], L = 15, R = 195;
     let y = 16;

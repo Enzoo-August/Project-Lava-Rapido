@@ -22,6 +22,7 @@ window.testeTudo = async () => {
   const campo = (el, nome, valor) => { const i = q(`[name=${nome}]`, el); i.value = valor; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); };
   const zap = []; U.zap = (t, m) => zap.push([t, m]);
   const dinheiro = (n) => U.brl(n);
+  const carrinhoVazio = () => !(Store.pref('pedido.' + (DB.lava().id || 'demo')) || []).length;
 
   Store.pref('visto.funcionario', true); Store.pref('visto.dono', true);
   if (!document.getElementById('login').hidden) { q('[data-perfil=funcionario]').click(); await esp(300); }   // tela de entrada da demonstração
@@ -283,6 +284,64 @@ window.testeTudo = async () => {
     await clic(`[data-d="${d.id}"]`); await clic('.modal-acoes .btn-perigo'); await esp(700); ok('excluir despesa: some da lista', d.excluido === true && !/Conta de teste/.test(tela()));
     await clic('[data-m="-1"]'); await esp(700); ok('mês anterior abre com despesas do exemplo', /Aluguel/.test(tela()) && !q('[data-m="1"]').disabled);
     ok('dia a dia e planilha do mês', !!q('.tabela') && !!q('#fPlanilha'));
+  });
+
+  await passo('14b produtos e pedido de compra', async () => {
+    await ir('inicio'); window.__semRecarregar = 1;
+    await clic('#lateral a[href="#/produtos"]'); await esp(300);
+    ok('menu → Produtos abre a tela sem recarregar a página', App.rota === 'produtos' && window.__semRecarregar === 1 && /Meus produtos/.test(tela()), location.href);
+    ok('links do menu ficam no mesmo endereço', qq('#lateral a[href^="#/"]').every((x) => x.href.startsWith(location.href.split('#')[0])), q('#lateral a[href="#/produtos"]').href);
+    const n = DB.produtos().length;
+    await clic('#pNovo'); await clic('.modal-acoes .btn-marca'); ok('produto sem nome é recusado', !!modal());
+    campo(modal(), 'nome', 'Shampoo de teste'); campo(modal(), 'preco', '45,90'); campo(modal(), 'unidade', 'galão 5 L'); campo(modal(), 'estoque', '3'); campo(modal(), 'minimo', '2'); campo(modal(), 'fornecedor', 'Fornecedor Teste');
+    await clic('.modal-acoes .btn-marca'); await esp(300);
+    const p = DB.produtos().find((x) => x.nome === 'Shampoo de teste');
+    ok('cadastrar produto: salva com valor, embalagem, estoque e mínimo', !!p && p.preco === 45.9 && p.unidade === 'galão 5 L' && p.estoque === 3 && p.minimo === 2 && DB.produtos().length === n + 1, JSON.stringify(p));
+    ok('depois de salvar continua em Produtos', App.rota === 'produtos' && /Shampoo de teste/.test(tela()));
+    const linha = () => q(`[data-p="${p.id}"]`);
+    await clic('[data-mexe="-1"]', linha()); ok('− tira 1 do estoque e fica “acabando”', p.estoque === 2 && linha().classList.contains('acabando'));
+    await clic('[data-mexe="1"]', linha()); ok('+ põe 1 no estoque', p.estoque === 3 && !linha().classList.contains('acabando'));
+    await clic('[data-editar]', linha()); campo(modal(), 'preco', '50'); await clic('.modal-acoes .btn-marca'); await esp(300); ok('editar produto: muda o valor', p.preco === 50);
+    await clic('[data-pedir]', linha()); ok('Pedir: produto vai para o pedido', /No pedido/.test(linha().innerText) && /Pedido\s*1/.test(q('.abas').innerText));
+    await clic('#pFaltam'); await esp(300);
+    ok('“Pôr no pedido” leva os que estão acabando', App.rota === 'produtos' && App.args[0] === 'pedido' && qq('#prCorpo [data-i]').length === 1 + DB.produtos().filter(DB.acabando).length);
+    const it = q(`[data-i="${p.id}"]`), q0 = Number(it.querySelector('.qtd b').textContent);
+    await clic('[data-q="1"]', it); ok('pedido: + aumenta a quantidade', Number(q(`[data-i="${p.id}"] .qtd b`).textContent) === q0 + 1);
+    const nPed = DB.pedidos().length; let pdf = null;
+    const oUrl = URL.createObjectURL, oClic = HTMLAnchorElement.prototype.click;
+    URL.createObjectURL = (b) => { pdf = b; return oUrl(b); }; HTMLAnchorElement.prototype.click = function () { if (!this.download) oClic.call(this); };
+    q('#pObs').value = 'Entregar até sexta';
+    await clic('#pGerar'); for (let i = 0; i < 40 && !pdf; i++) await esp(200); await esp(300);
+    URL.createObjectURL = oUrl; HTMLAnchorElement.prototype.click = oClic;
+    const ped = DB.pedidos()[0];
+    ok('gerar PDF: pedido salvo e PDF criado', DB.pedidos().length === nPed + 1 && !!pdf && pdf.type === 'application/pdf' && pdf.size > 2000 && ped.obs === 'Entregar até sexta', pdf && pdf.size);
+    ok('depois do PDF: pedido esvaziado e lista de pedidos feitos', App.args[0] === 'historico' && /Aguardando/.test(tela()) && carrinhoVazio());
+    const est = p.estoque, qtd = ped.itens.find((i) => i.produto_id === p.id).qtd;
+    await clic(`[data-ped="${ped.id}"]`); await clic(qq('.modal-acoes button').find((x) => /Chegou/.test(x.innerText))); await esp(300);
+    ok('pedido chegou: soma no estoque uma vez', p.estoque === est + qtd && ped.status === 'recebido' && /Chegou/.test(tela()), `${est} + ${qtd} = ${p.estoque}`);
+    await clic(`[data-ped="${ped.id}"]`); ok('pedido recebido não soma de novo', !qq('.modal-acoes button').some((x) => /Chegou/.test(x.innerText))); await fecharModais();
+    await ir('produtos'); await clic('[data-editar]', linha()); await clic('.modal-acoes .btn-perigo'); await esp(300);
+    ok('excluir produto: some da lista', p.excluido === true && !/Shampoo de teste/.test(tela()));
+    await entrar('funcionario'); await ir('produtos'); ok('funcionário não abre “produtos”', App.rota !== 'produtos'); await entrar('dono');
+  });
+
+  await passo('14c avisos da agenda', async () => {
+    const g = DB.agenda()[0], orig = g.quando, tel = g.telefone; g.telefone = tel || '11977775555';
+    g.quando = new Date(Date.now() + 25 * 60000).toISOString();
+    let x = Avisos.lista().find((a) => a.g === g);
+    ok('30 min antes: avisa que o cliente marcou e não chegou', !!x && x.tipo === 'agenda' && /ainda não chegou/.test(x.titulo) && /Faltam 2[45] min/.test(x.txt), x && x.titulo + ' | ' + x.txt);
+    g.quando = new Date(Date.now() - 4 * 60000).toISOString();
+    x = Avisos.lista().find((a) => a.g === g);
+    ok('na hora marcada: avisa que deu a hora e não chegou', !!x && x.tipo === 'agenda-atraso' && /^Deu .* não chegou$/.test(x.titulo), x && x.titulo);
+    let toque = 0; const oT = Avisos.tocar; Avisos.tocar = () => toque++;
+    Store.pref('avisos.vistos', []); Avisos.tick(); Avisos.tick(); Avisos.tick(); Avisos.tocar = oT;
+    ok('som toca uma vez só por aviso', toque <= 1);
+    Avisos.mostrar(x); await esp(100);
+    ok('faixa do aviso tem WhatsApp e Ligar', !!q('#alertaAviso [data-zap]') && !!q('#alertaAviso a[href^="tel:"]'));
+    const z = zap.length; await clic('#alertaAviso [data-zap]');
+    ok('WhatsApp do aviso: mensagem pergunta se ainda vem', zap.length === z + 1 && /Ainda vem hoje/.test(zap[zap.length - 1][1]), zap[zap.length - 1] && zap[zap.length - 1][1]);
+    g.status = 'chegou'; ok('cliente chegou: o aviso some', !Avisos.lista().some((a) => a.g === g));
+    g.status = 'marcado'; g.quando = orig; g.telefone = tel;
   });
 
   await passo('15 clientes do dono', async () => {

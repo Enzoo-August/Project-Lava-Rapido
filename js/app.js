@@ -67,8 +67,10 @@
   App.enderecoDe = () => (window.LAVA_CFG || {}).sitePrincipal || location.origin;
   const caminho = (p) => { if (!DEMO && location.pathname !== p) history.replaceState(null, '', p + location.search + location.hash); };
   const caminhoDoUsuario = () => '/' + (App.user.perfil === 'admin' ? 'administracao' : (DB.lava().slug || ''));
+  // logo guardada como caminho do site (assets/...) vale em qualquer endereço (/garagem-z, /administracao)
+  App.urlLogo = (src) => (src && /^assets\//.test(src) ? '/' + src : src);
   App.logoHtml = (m, nome, cls) => (m && m.logo
-    ? `<img class="logo ${cls || ''}" src="${U.esc(m.logo)}" alt="${U.esc(nome)}">`
+    ? `<img class="logo ${cls || ''}" src="${U.esc(App.urlLogo(m.logo))}" alt="${U.esc(nome)}">`
     : `<span class="logo-letra ${cls || ''}">${U.icon('gota')}</span>`);
 
   // ---------------- abertura ----------------
@@ -146,7 +148,7 @@
       <p class="erro" ${erroInicial ? '' : 'hidden'}>${U.esc(erroInicial || '')}</p>
       <button class="btn btn-marca btn-g btn-bloco" type="submit">Entrar</button>
       <p class="mudo centro pequeno">Este aparelho fica conectado: só precisa entrar uma vez.</p>
-      <a class="link centro" href="?demo=1">Ver uma demonstração</a>
+      <a class="link centro" href="/?demo=1">Ver uma demonstração</a>
     </form>`;
     el.querySelector('form').onsubmit = async (e) => {
       e.preventDefault();

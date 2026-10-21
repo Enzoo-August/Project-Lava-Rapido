@@ -63,6 +63,8 @@ window.testeFuncionario = async () => {
   location.hash = '#/resultados'; await esp(300);
   ok('funcionário não abre Resultados', location.hash === '#/balcao');
   ok('funcionário não recebe despesas', Store.s.despesas.length === 0);
+  location.hash = '#/produtos'; await esp(500);
+  ok('funcionário não abre Produtos', App.rota !== 'produtos');
   return log.join('\n');
 };
 
@@ -89,6 +91,18 @@ window.testeDono = async () => {
   ok('dono não mexe na própria assinatura (a gravação nem leva esses campos)', FAKE.ler(L).ativo === true && FAKE.ler(L).plano === 'mensal');
   location.hash = '#/financeiro'; await esp(900);
   ok('Financeiro desenha com a despesa', /300,00/.test(document.querySelector('#fCorpo').innerText));
+  // produtos e pedido de compra, tocando no menu como o dono faz
+  window.__semRecarregar = 1; document.querySelector('#lateral a[href="#/produtos"]').click(); await esp(700);
+  ok('menu → Produtos abre (sem recarregar a página)', App.rota === 'produtos' && window.__semRecarregar === 1 && /Meus produtos/.test(document.querySelector('#tela').innerText), location.href);
+  const prod = DB.salvarProduto(null, { nome: 'Cera', preco: 30, unidade: 'un', estoque: 1, minimo: 2, fornecedor: '' }); App.render(); await esp(400);
+  ok('produto gravado no banco e tela continua em Produtos', FAKE.ler(`${L}/produtos/${prod.id}`).nome === 'Cera' && App.rota === 'produtos' && /Cera/.test(document.querySelector('#tela').innerText));
+  document.querySelector(`[data-p="${prod.id}"] [data-mexe="1"]`).click(); await esp(400);
+  ok('+ no estoque gravado no banco', FAKE.ler(`${L}/produtos/${prod.id}`).estoque === 2);
+  const ped = DB.salvarPedido(null, { itens: [{ produto_id: prod.id, nome: 'Cera', unidade: 'un', qtd: 4, preco: 30 }] }); await esp(300);
+  DB.receberPedido(ped); await esp(400);
+  ok('pedido gravado e, ao chegar, soma no estoque do banco', FAKE.ler(`${L}/pedidos/${ped.id}`).total === 120 && FAKE.ler(`${L}/pedidos/${ped.id}`).status === 'recebido' && FAKE.ler(`${L}/produtos/${prod.id}`).estoque === 6);
+  FAKE.gravarComoOutro(`${L}/produtos/outro1`, { id: 'outro1', lava_id: 'lava-teste', nome: 'Pretinho', preco: 20, unidade: 'un', estoque: 5, minimo: 1, excluido: false, atualizado_em: new Date().toISOString() }); await esp(400);
+  ok('produto cadastrado em outro aparelho aparece', !!Store.por('produtos', 'outro1'));
   // acessos
   await Nuvem.criarAcesso({ login: 'Nova.Func', senha: 'senha123', nome: 'Nova Func', perfil: 'funcionario' }); await esp(200);
   const nova = Store.s.equipe.find((e) => e.login === 'nova.func');

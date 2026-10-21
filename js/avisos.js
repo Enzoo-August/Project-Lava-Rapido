@@ -75,7 +75,7 @@
   A.podeNotificar = () => 'Notification' in window;
   A.notificar = (x) => {
     if (!A.podeNotificar() || Notification.permission !== 'granted') return;
-    const o = { body: x.txt, tag: x.id, icon: 'assets/icons/icon-192.png', badge: 'assets/icons/icon-192.png', data: { rota: x.tipo.startsWith('agenda') ? 'agenda' : 'patio' } };
+    const o = { body: x.txt, tag: x.id, icon: '/assets/icons/icon-192.png', badge: '/assets/icons/icon-192.png', data: { rota: x.tipo.startsWith('agenda') ? 'agenda' : 'patio' } };
     const direto = () => { try { new Notification(x.titulo, o); } catch (e) {} };
     if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then((r) => (r ? r.showNotification(x.titulo, o) : direto())).catch(direto);
     else direto();

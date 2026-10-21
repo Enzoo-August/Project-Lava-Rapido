@@ -14,7 +14,7 @@ window.aud = async (perfil, placa) => {
   U.zap = () => {};
   const cid = Store.s.clientes.find((c) => c.visitas > 12).id;
   const rotas = perfil === 'dono'
-    ? ['inicio', 'agenda', 'balcao', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'resultados', 'financeiro', 'ajustes', 'ajustes/marca', 'ajustes/servicos',
+    ? ['inicio', 'agenda', 'balcao', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'resultados', 'financeiro', 'produtos', 'produtos/pedido', 'produtos/historico', 'ajustes', 'ajustes/marca', 'ajustes/servicos',
       'ajustes/fidelidade', 'ajustes/mensagens', 'ajustes/equipe', 'ajustes/opcoes', 'ajustes/conta', 'ajuda', 'mais', 'entrada']
     : ['balcao', 'agenda', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'ajuda', 'entrada'];
   const prob = [];
@@ -68,6 +68,11 @@ window.aud = async (perfil, placa) => {
   if (await clic('[data-acao=lavar]')) { medir('patio/janela quem lava'); await clic('.modal [data-fechar]'); await esp(200); }
   location.hash = '#/patio/pronto'; await esp(300);
   if (await clic('[data-acao=entregar]')) { medir('patio/janela entregar'); await clic('.modal [data-fechar]'); await esp(200); }
+  if (perfil === 'dono') {
+    location.hash = '#/produtos'; await esp(300);
+    if (await clic('#pNovo')) { medir('produtos/janela novo produto'); await clic('.modal [data-fechar]'); await esp(200); }
+    if (await clic('#pFaltam')) { await esp(300); medir('produtos/pedido montado'); }
+  }
 
   const unicos = [...new Set(prob)];
   return `${innerWidth}x${innerHeight} ${perfil}: ${unicos.length ? unicos.length + ' problemas\n' + unicos.slice(0, 30).join('\n') : 'sem problemas'}`;
