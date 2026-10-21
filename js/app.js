@@ -148,8 +148,10 @@
       <p class="erro" ${erroInicial ? '' : 'hidden'}>${U.esc(erroInicial || '')}</p>
       <button class="btn btn-marca btn-g btn-bloco" type="submit">Entrar</button>
       <p class="mudo centro pequeno">Este aparelho fica conectado: só precisa entrar uma vez.</p>
+      <button type="button" class="link centro" id="lgInstalar">${U.icon('celular')} Como instalar no celular ou no computador</button>
       <a class="link centro" href="/?demo=1">Ver uma demonstração</a>
     </form>`;
+    const li = el.querySelector('#lgInstalar'); if (li) li.onclick = () => Instalar.janela();
     el.querySelector('form').onsubmit = async (e) => {
       e.preventDefault();
       const f = U.campos(e.target), b = e.target.querySelector('button[type=submit]'), err = e.target.querySelector('.erro');
@@ -187,7 +189,8 @@
     { r: 'financeiro', txt: 'Financeiro', ic: 'carteira', perfis: ['dono'], mais: true },
     { r: 'produtos', txt: 'Produtos', ic: 'caixa', perfis: ['dono'], mais: true },
     { r: 'ajustes', txt: 'Ajustes', ic: 'ajustes', perfis: ['dono'], mais: true },
-    { r: 'ajuda', txt: 'Ajuda', ic: 'ajuda', perfis: ['dono'], mais: true }
+    { r: 'ajuda', txt: 'Ajuda', ic: 'ajuda', perfis: ['dono'], mais: true },
+    { r: 'instalar', txt: 'Instalar o app', ic: 'celular', perfis: ['dono'], mais: true }
   ];
   App.MENU = MENU;
   const inicial = () => (App.user.perfil === 'admin' ? 'admin' : App.user.perfil === 'dono' ? 'inicio' : 'balcao');
@@ -304,7 +307,8 @@
     U.modal({
       titulo: u.nome,
       html: `<div class="lista-menu">
-        ${u.perfil === 'funcionario' ? `<a href="#/agenda" data-fechar>${U.icon('calendario')}<span>Agenda</span></a><a href="#/clientes" data-fechar>${U.icon('pessoas')}<span>Clientes</span></a><a href="#/ajuda" data-fechar>${U.icon('ajuda')}<span>Como usar</span></a><a href="#/ajuda/instalar" data-fechar>${U.icon('celular')}<span>Instalar no celular</span></a>` : ''}
+        ${u.perfil === 'funcionario' ? `<a href="#/agenda" data-fechar>${U.icon('calendario')}<span>Agenda</span></a><a href="#/clientes" data-fechar>${U.icon('pessoas')}<span>Clientes</span></a><a href="#/ajuda" data-fechar>${U.icon('ajuda')}<span>Como usar</span></a>` : ''}
+        <a href="#/instalar" data-fechar>${U.icon('celular')}<span>Instalar o app</span></a>
         <button type="button" id="mSair">${U.icon('sair')}<span>Sair deste aparelho</span></button>
       </div>${App.temaHtml()}`,
       aoAbrir: (el, fechar) => { el.querySelector('#mSair').onclick = () => { fechar(); App.sair(); }; App.ligarTema(el); }

@@ -93,9 +93,10 @@
           return `<button type="button" class="linha" data-l="${l.id}">
             <span class="linha-txt"><b>${U.esc(l.nome)}</b>
               <small>${l.dono ? U.esc(l.dono) : '<span class="alerta-txt">sem login de dono</span>'}${l.criado_em ? ' · desde ' + U.dataBR(l.criado_em) : ''}</small>
-              <small>${U.esc(l.plano)}${l.pago_ate ? ' · pago até ' + U.dataBR(l.pago_ate) : ''} · ?l=${U.esc(l.slug)}</small></span>
+              <small>${U.esc(l.plano)}${l.pago_ate ? ' · pago até ' + U.dataBR(l.pago_ate) : ''} · /${U.esc(l.slug)}</small></span>
             ${sit}</button>`;
         }).join('') || '<p class="mudo centro">Nenhum lava-rápido cadastrado ainda.</p>'}</div>
+        <a class="btn btn-bloco" href="#/instalar">${U.icon('celular')}<span>Instalar o app (celular ou computador)</span></a>
         <a class="link centro" href="#/ajustes/conta">Trocar a minha senha</a>`;
       el.onclick = async (e) => {
         const b = e.target.closest('[data-l]');

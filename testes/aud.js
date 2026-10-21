@@ -15,8 +15,8 @@ window.aud = async (perfil, placa) => {
   const cid = Store.s.clientes.find((c) => c.visitas > 12).id;
   const rotas = perfil === 'dono'
     ? ['inicio', 'agenda', 'balcao', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'resultados', 'financeiro', 'produtos', 'produtos/pedido', 'produtos/historico', 'ajustes', 'ajustes/marca', 'ajustes/servicos',
-      'ajustes/fidelidade', 'ajustes/mensagens', 'ajustes/equipe', 'ajustes/opcoes', 'ajustes/conta', 'ajuda', 'mais', 'entrada']
-    : ['balcao', 'agenda', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'ajuda', 'entrada'];
+      'ajustes/fidelidade', 'ajustes/mensagens', 'ajustes/equipe', 'ajustes/opcoes', 'ajustes/conta', 'ajuda', 'instalar', 'mais', 'entrada']
+    : ['balcao', 'agenda', 'patio', 'patio/pronto', 'patio/entregue', 'clientes', 'cliente/' + cid, 'ajuda', 'instalar', 'entrada'];
   const prob = [];
 
   const medir = (nome) => {

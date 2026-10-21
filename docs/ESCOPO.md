@@ -46,7 +46,7 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - Também: mudar dia/hora, "não veio" e cancelar.
 - **Aviso com som:** 30 minutos antes de um horário em que o cliente ainda não chegou e de novo quando dá a hora marcada, com botões de WhatsApp (mensagem pronta) e Ligar. Pode aparecer também como notificação do celular, com o aplicativo aberto.
 - Aparece no balcão (faixa "Agenda de hoje"), no menu do funcionário e no Início do dono.
-- Ajuda em 5 passos e instruções para instalar no celular.
+- Ajuda em 5 passos e a tela **Instalar o app**: passo a passo com o desenho de cada botão para iPhone/iPad (Safari), Android (Chrome e Samsung Internet), computador (Chrome/Edge, Windows e Mac) e Mac com Safari, com “não achei a opção” e “como tirar”; abre na aba do aparelho, tem botão “Instalar agora” onde o navegador permite e fica também na tela de entrada e na Administração.
 
 ### Fidelidade
 

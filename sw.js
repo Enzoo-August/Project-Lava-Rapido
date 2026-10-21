@@ -4,12 +4,12 @@
    Estratégia: arquivos do app → rede primeiro (sempre pega a versão nova);
    biblioteca externa (Firebase) → cache primeiro.
    Os dados do banco NUNCA passam por aqui: vão sempre direto para a nuvem. */
-const CACHE = 'lava-rapido-v15';
+const CACHE = 'lava-rapido-v16';
 const BASE = [
   './', './index.html', './manifest.webmanifest', './css/app.css',
   './js/config.js', './js/util.js', './js/catalogo.js', './js/store.js', './js/demo.js', './js/nuvem.js', './js/db.js', './js/avisos.js', './js/app.js',
   './js/telas/balcao.js', './js/telas/entrada.js', './js/telas/patio.js', './js/telas/clientes.js', './js/telas/inicio.js',
-  './js/telas/resultados.js', './js/telas/financeiro.js', './js/telas/produtos.js', './js/telas/ajustes.js', './js/telas/admin.js', './js/telas/agenda.js', './js/telas/ajuda.js',
+  './js/telas/resultados.js', './js/telas/financeiro.js', './js/telas/produtos.js', './js/telas/ajustes.js', './js/telas/admin.js', './js/telas/agenda.js', './js/telas/ajuda.js', './js/telas/instalar.js',
   './c/index.html', './assets/icons/icon-192.png', './assets/icons/apple-touch-icon.png',
   ...['app', 'auth', 'firestore'].map((n) => `https://www.gstatic.com/firebasejs/10.14.1/firebase-${n}-compat.js`)
 ];

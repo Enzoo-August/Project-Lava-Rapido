@@ -380,6 +380,20 @@ window.testeTudo = async () => {
     await entrar('funcionario'); await ir('produtos'); ok('funcionário não abre “produtos”', App.rota !== 'produtos'); await entrar('dono');
   });
 
+  await passo('14d instalar o app', async () => {
+    await ir('mais'); await clic('a[href="#/instalar"]'); await esp(200);
+    ok('Mais → Instalar o app abre a tela', App.rota === 'instalar' && /Instalar o app/.test(q('#topo').innerText));
+    ok('quatro abas: iPhone, Android, Computador e Mac', qq('[data-ins]').map((x) => x.dataset.ins).join() === 'iphone,android,pc,mac');
+    const conf = { iphone: /Safari[\s\S]*Compartilhar[\s\S]*Adicionar à Tela de Início[\s\S]*Adicionar/, android: /Chrome[\s\S]*três pontinhos[\s\S]*Instalar app/, pc: /Chrome[\s\S]*Edge[\s\S]*Instalar[\s\S]*Fixar na barra de tarefas/, mac: /Arquivo[\s\S]*Adicionar ao Dock/ };
+    for (const [id, re] of Object.entries(conf)) { await clic(`[data-ins="${id}"]`); ok(`aba ${id}: passo a passo completo, com dúvidas e como tirar`, re.test(q('[data-ins-corpo]').innerText) && qq('[data-ins-corpo] .ajuda-passo').length >= 4 && qq('[data-ins-corpo] details').length >= 2, q('[data-ins-corpo]').innerText.slice(0, 120)); }
+    App.aoMudar(); await esp(100); ok('a aba escolhida continua quando chegam dados novos', q('[data-ins].ativo').dataset.ins === 'mac');
+    ok('mostra o endereço para digitar', /lavarapido\.web\.app/.test(q('.ins-end').innerText));
+    ok('na tela de entrada também tem o passo a passo', typeof Instalar.janela === 'function');
+    await entrar('funcionario'); await clic('#btMenu'); ok('menu do funcionário tem “Instalar o app”', !!q('.modal a[href="#/instalar"]')); await clic('.modal a[href="#/instalar"]'); await esp(200);
+    ok('funcionário abre a tela de instalar', App.rota === 'instalar');
+    await entrar('dono');
+  });
+
   await passo('14c avisos da agenda', async () => {
     const g = DB.agenda()[0], orig = g.quando, tel = g.telefone; g.telefone = tel || '11977775555';
     g.quando = new Date(Date.now() + 25 * 60000).toISOString();

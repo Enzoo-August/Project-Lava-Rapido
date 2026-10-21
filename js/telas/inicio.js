@@ -12,7 +12,7 @@
       { ok: !!(l.config || {}).precosConferidos, txt: 'Conferir os serviços e os preços', r: 'ajustes/servicos' },
       { ok: !!m.google, txt: 'Colar o link de avaliação do Google', r: 'ajustes/marca' },
       { ok: Store.s.equipe.some((e) => e.perfil === 'funcionario' && e.ativo), txt: 'Criar o acesso do funcionário', r: 'ajustes/equipe' },
-      { ok: !!Store.pref('instalado') || window.matchMedia('(display-mode: standalone)').matches, txt: 'Instalar no celular (vira um aplicativo)', r: 'ajuda/instalar' }
+      { ok: !!Store.pref('instalado') || window.matchMedia('(display-mode: standalone)').matches, txt: 'Instalar o app no celular ou no computador', r: 'instalar' }
     ];
   };
 
