@@ -213,6 +213,11 @@
     const partes = decodeURIComponent(location.hash.replace(/^#\/?/, '')).split('/');
     let rota = partes[0] || inicial();
     let tela = Telas[rota];
+    // botão do menu sem a tela carregada = página velha guardada no aparelho: recarrega uma vez
+    if (!tela && MENU.some((x) => x.r === rota)) {
+      let ja = false; try { ja = sessionStorage.getItem('lr.recarregou') === rota; sessionStorage.setItem('lr.recarregou', rota); } catch (e) {}
+      if (!ja) { location.reload(); return; }
+    }
     if (!tela || (tela.perfis && !tela.perfis.includes(App.user.perfil))) { rota = inicial(); tela = Telas[rota]; history.replaceState(null, '', location.pathname + location.search + '#/' + rota); }
     const mudou = App.rota !== rota || JSON.stringify(App.args) !== JSON.stringify(partes.slice(1));
     App.rota = rota; App.args = partes.slice(1);
