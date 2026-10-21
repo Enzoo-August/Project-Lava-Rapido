@@ -147,7 +147,7 @@
     const fundo = document.createElement('div');
     fundo.className = 'modal-fundo';
     const acoes = (o.acoes || []).map((a, i) => `<button type="button" class="btn ${a.cls || ''}" data-i="${i}">${a.icone ? U.icon(a.icone) : ''}<span>${U.esc(a.txt)}</span></button>`).join('');
-    fundo.innerHTML = `<div class="modal ${o.largo ? 'largo' : ''}" role="dialog" aria-modal="true">
+    fundo.innerHTML = `<div class="modal ${o.largo ? 'largo' : ''} ${o.classe || ''}" role="dialog" aria-modal="true">
       <div class="modal-topo"><h2>${U.esc(o.titulo || '')}</h2><button type="button" class="ic-btn" data-fechar aria-label="Fechar">${U.icon('x')}</button></div>
       <div class="modal-corpo">${o.html || ''}</div>
       ${acoes ? `<div class="modal-acoes ${o.empilhar ? 'empilha' : ''}">${acoes}</div>` : ''}

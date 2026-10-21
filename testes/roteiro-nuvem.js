@@ -98,9 +98,12 @@ window.testeDono = async () => {
   ok('produto gravado no banco e tela continua em Produtos', FAKE.ler(`${L}/produtos/${prod.id}`).nome === 'Cera' && App.rota === 'produtos' && /Cera/.test(document.querySelector('#tela').innerText));
   document.querySelector(`[data-p="${prod.id}"] [data-mexe="1"]`).click(); await esp(400);
   ok('+ no estoque gravado no banco', FAKE.ler(`${L}/produtos/${prod.id}`).estoque === 2);
-  const ped = DB.salvarPedido(null, { itens: [{ produto_id: prod.id, nome: 'Cera', unidade: 'un', qtd: 4, preco: 30 }] }); await esp(300);
-  DB.receberPedido(ped); await esp(400);
-  ok('pedido gravado e, ao chegar, soma no estoque do banco', FAKE.ler(`${L}/pedidos/${ped.id}`).total === 120 && FAKE.ler(`${L}/pedidos/${ped.id}`).status === 'recebido' && FAKE.ler(`${L}/produtos/${prod.id}`).estoque === 6);
+  const ped = DB.salvarPedido(null, { itens: [{ produto_id: prod.id, nome: 'Cera', unidade: 'un', qtd: 4, preco: 30 }, { produto_id: null, nome: 'Escova nova', unidade: 'un', qtd: 3, preco: 10, cadastrar: true }], pagamento: 'Boleto', condicao: '28 dias', frete_tipo: 'pago', frete: 20, desconto: 5 }); await esp(300);
+  ok('pedido gravado com pagamento, frete e desconto (total = 150 − 5 + 20)', FAKE.ler(`${L}/pedidos/${ped.id}`).total === 165 && FAKE.ler(`${L}/pedidos/${ped.id}`).pagamento === 'Boleto' && FAKE.ler(`${L}/pedidos/${ped.id}`).frete === 20);
+  DB.receberPedido(ped, { despesa: true }); await esp(400);
+  const esc = FAKE.lista(`${L}/produtos`).find((x) => x.nome === 'Escova nova');
+  ok('chegou: soma no estoque do banco e produto novo entra no estoque', FAKE.ler(`${L}/pedidos/${ped.id}`).status === 'recebido' && FAKE.ler(`${L}/produtos/${prod.id}`).estoque === 6 && !!esc && esc.estoque === 3);
+  ok('chegou: despesa de R$ 165 gravada no banco', FAKE.lista(`${L}/despesas`).some((d) => d.valor === 165 && d.categoria === 'Produtos'));
   FAKE.gravarComoOutro(`${L}/produtos/outro1`, { id: 'outro1', lava_id: 'lava-teste', nome: 'Pretinho', preco: 20, unidade: 'un', estoque: 5, minimo: 1, excluido: false, atualizado_em: new Date().toISOString() }); await esp(400);
   ok('produto cadastrado em outro aparelho aparece', !!Store.por('produtos', 'outro1'));
   // acessos

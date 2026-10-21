@@ -22,7 +22,7 @@ window.testeTudo = async () => {
   const campo = (el, nome, valor) => { const i = q(`[name=${nome}]`, el); i.value = valor; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); };
   const zap = []; U.zap = (t, m) => zap.push([t, m]);
   const dinheiro = (n) => U.brl(n);
-  const carrinhoVazio = () => !(Store.pref('pedido.' + (DB.lava().id || 'demo')) || []).length;
+  const carrinhoVazio = () => { const r = Store.pref('pedido.' + (DB.lava().id || 'demo')); return !(r && (Array.isArray(r) ? r : r.itens || []).length); };
 
   Store.pref('visto.funcionario', true); Store.pref('visto.dono', true);
   if (!document.getElementById('login').hidden) { q('[data-perfil=funcionario]').click(); await esp(300); }   // tela de entrada da demonstração
@@ -305,21 +305,67 @@ window.testeTudo = async () => {
     await clic('[data-pedir]', linha()); ok('Pedir: produto vai para o pedido', /No pedido/.test(linha().innerText) && /Pedido\s*1/.test(q('.abas').innerText));
     await clic('#pFaltam'); await esp(300);
     ok('“Pôr no pedido” leva os que estão acabando', App.rota === 'produtos' && App.args[0] === 'pedido' && qq('#prCorpo [data-i]').length === 1 + DB.produtos().filter(DB.acabando).length);
-    const it = q(`[data-i="${p.id}"]`), q0 = Number(it.querySelector('.qtd b').textContent);
-    await clic('[data-q="1"]', it); ok('pedido: + aumenta a quantidade', Number(q(`[data-i="${p.id}"] .qtd b`).textContent) === q0 + 1);
-    const nPed = DB.pedidos().length; let pdf = null;
-    const oUrl = URL.createObjectURL, oClic = HTMLAnchorElement.prototype.click;
-    URL.createObjectURL = (b) => { pdf = b; return oUrl(b); }; HTMLAnchorElement.prototype.click = function () { if (!this.download) oClic.call(this); };
-    q('#pObs').value = 'Entregar até sexta';
-    await clic('#pGerar'); for (let i = 0; i < 40 && !pdf; i++) await esp(200); await esp(300);
-    URL.createObjectURL = oUrl; HTMLAnchorElement.prototype.click = oClic;
+    const itP = () => qq('#prCorpo [data-i]').find((x) => x.innerText.includes('Shampoo de teste'));
+    const q0 = Number(itP().querySelector('.qtd b').textContent);
+    await clic('[data-q="1"]', itP()); ok('pedido: + aumenta a quantidade', Number(itP().querySelector('.qtd b').textContent) === q0 + 1);
+    // produto que não está no estoque
+    await clic('#pAdd'); const b = q('#adBusca'); b.value = 'Cera de carnaúba'; b.dispatchEvent(new Event('input')); await esp(100);
+    ok('pôr no pedido: busca no estoque e oferece produto novo', /Nada no estoque/.test(modal().innerText) && !!q('#adNovo'));
+    await clic('#adNovo'); await esp(200);
+    ok('produto novo já vem com o nome digitado', q('[name=nome]', modal()).value === 'Cera de carnaúba' && q('[name=cadastrar]', modal()).checked);
+    campo(modal(), 'qtd', '2'); campo(modal(), 'preco', '80'); campo(modal(), 'unidade', 'pote 500 g'); await clic('.modal-acoes .btn-marca'); await esp(300);
+    ok('produto novo entra no pedido marcado como “novo”', /Cera de carnaúba/.test(tela()) && /novo/.test(qq('#prCorpo [data-i]').find((x) => x.innerText.includes('Cera')).innerText));
+    // pagamento, frete, desconto, prazo
+    await clic('#pPag [data-pag="Boleto"]'); const cnd = q('#pCond'); cnd.value = '28 dias'; cnd.dispatchEvent(new Event('input'));
+    await clic('#pFrete [data-frete="pago"]'); ok('frete pago mostra o campo do valor', !q('#pFreteV').hidden);
+    const fr = q('#pFreteN'); fr.value = '25'; fr.dispatchEvent(new Event('input'));
+    const ds = q('#pDesc'); ds.value = '10'; ds.dispatchEvent(new Event('input'));
+    const fo = q('#pForn'); fo.value = 'Distribuidora Teste'; fo.dispatchEvent(new Event('input'));
+    const fn = q('#pFone'); fn.value = '11 98765-4321'; fn.dispatchEvent(new Event('input'));
+    const en = q('#pEntrega'); en.value = U.dia(U.somaDias(new Date(), 5)); en.dispatchEvent(new Event('change'));
+    const ob = q('#pObs'); ob.value = 'Entregar pela manhã'; ob.dispatchEvent(new Event('input')); await esp(100);
+    const itens = qq('#prCorpo [data-i]').length, sub = DB.produtos().length >= 0 && JSON.parse(localStorage.getItem('lr.pref.pedido.' + (DB.lava().id || 'demo'))).itens.reduce((t, i) => t + i.qtd * i.preco, 0);
+    ok('total = produtos − desconto + frete', U.num(q('#pTotais .par.total b').innerText) === Math.round((sub - 10 + 25) * 100) / 100, q('#pTotais').innerText);
+    const nPed = DB.pedidos().length;
+    await clic('#pGerar'); await esp(700);
     const ped = DB.pedidos()[0];
-    ok('gerar PDF: pedido salvo e PDF criado', DB.pedidos().length === nPed + 1 && !!pdf && pdf.type === 'application/pdf' && pdf.size > 2000 && ped.obs === 'Entregar até sexta', pdf && pdf.size);
-    ok('depois do PDF: pedido esvaziado e lista de pedidos feitos', App.args[0] === 'historico' && /Aguardando/.test(tela()) && carrinhoVazio());
-    const est = p.estoque, qtd = ped.itens.find((i) => i.produto_id === p.id).qtd;
-    await clic(`[data-ped="${ped.id}"]`); await clic(qq('.modal-acoes button').find((x) => /Chegou/.test(x.innerText))); await esp(300);
-    ok('pedido chegou: soma no estoque uma vez', p.estoque === est + qtd && ped.status === 'recebido' && /Chegou/.test(tela()), `${est} + ${qtd} = ${p.estoque}`);
-    await clic(`[data-ped="${ped.id}"]`); ok('pedido recebido não soma de novo', !qq('.modal-acoes button').some((x) => /Chegou/.test(x.innerText))); await fecharModais();
+    ok('salvar: pedido com pagamento, condição, frete, desconto, prazo e fornecedor', DB.pedidos().length === nPed + 1 && ped.pagamento === 'Boleto' && ped.condicao === '28 dias' && ped.frete_tipo === 'pago' && ped.frete === 25 && ped.desconto === 10 && ped.fone === '11987654321' && ped.fornecedor === 'Distribuidora Teste' && !!ped.entrega && ped.obs === 'Entregar pela manhã' && ped.itens.length === itens, JSON.stringify(ped).slice(0, 300));
+    ok('salvar: abre a janela do pedido com as opções do PDF', !!modal() && /Salvar PDF como|Enviar ou salvar/.test(modal().innerText) && /Boleto · 28 dias/.test(modal().innerText) && carrinhoVazio());
+    ok('janela do pedido: total confere', U.num(qq('.modal .par.total b').pop().innerText) === ped.total && ped.total === Math.round((ped.subtotal - 10 + 25) * 100) / 100, ped.total);
+    // "Salvar como": no computador abre a janela de escolher a pasta
+    let gravado = null, nomeSug = '';
+    const oPick = window.showSaveFilePicker;
+    window.showSaveFilePicker = async (o) => { nomeSug = o.suggestedName; return { createWritable: async () => ({ write: async (b) => { gravado = b; }, close: async () => {} }) }; };
+    await clic(qq('.modal-acoes button').find((x) => /Salvar PDF como/.test(x.innerText))); for (let k = 0; k < 40 && !gravado; k++) await esp(200);
+    window.showSaveFilePicker = oPick;
+    ok('Salvar PDF como…: grava o PDF com o nome do pedido e do fornecedor', !!gravado && gravado.type === 'application/pdf' && gravado.size > 3000 && nomeSug === `Pedido de compra ${ped.numero} - Distribuidora Teste.pdf`, nomeSug + ' ' + (gravado && gravado.size));
+    ok('janela tem Imprimir e WhatsApp do fornecedor', qq('.modal-acoes button').some((x) => /Imprimir/.test(x.innerText)) && qq('.modal-acoes button').some((x) => /WhatsApp do fornecedor/.test(x.innerText)));
+    // editar mantém o número
+    await clic(qq('.modal-acoes button').find((x) => /Editar pedido/.test(x.innerText))); await esp(300);
+    ok('editar: volta para o pedido com tudo preenchido', App.args[0] === 'pedido' && /Editando o pedido nº/.test(tela()) && q('#pCond').value === '28 dias' && q('#pFrete .ativo').dataset.frete === 'pago');
+    await clic('[data-q="1"]', itP()); await clic('#pGerar'); await esp(700); await fecharModais();
+    ok('editar: salva no mesmo número, sem criar outro', DB.pedidos().length === nPed + 1 && DB.pedidos()[0].id === ped.id && ped.itens.find((i) => i.produto_id === p.id).qtd === q0 + 2);
+    // chegou: estoque, produto novo e despesa
+    const est = p.estoque, qtdP = ped.itens.find((i) => i.produto_id === p.id).qtd, nDesp = Store.s.despesas.filter((d) => !d.excluido).length;
+    await clic(`[data-ped="${ped.id}"]`); await clic(qq('.modal-acoes button').find((x) => /^Chegou$/.test(x.innerText.trim()))); await esp(200);
+    ok('chegou: pergunta se lança nas despesas (já marcado)', !!q('#chDesp') && q('#chDesp').checked);
+    await clic(qq('.modal-acoes button').find((x) => /^Chegou$/.test(x.innerText.trim()))); await esp(400);
+    const cera = DB.produtos().find((x) => x.nome === 'Cera de carnaúba');
+    ok('chegou: soma no estoque', p.estoque === est + qtdP && ped.status === 'recebido', `${est} + ${qtdP} = ${p.estoque}`);
+    ok('chegou: produto novo entra no estoque com a quantidade', !!cera && cera.estoque === 2 && cera.preco === 80 && cera.unidade === 'pote 500 g');
+    const desp = Store.s.despesas.find((d) => d.id === ped.despesa_id);
+    ok('chegou: total lançado nas despesas como Produtos', Store.s.despesas.filter((d) => !d.excluido).length === nDesp + 1 && desp && desp.valor === ped.total && desp.categoria === 'Produtos');
+    ok('pedido que chegou sai de “Aguardando”', !q(`[data-ped="${ped.id}"]`));
+    await clic('[data-f="recebido"]'); await clic(`[data-ped="${ped.id}"]`); ok('pedido recebido não soma de novo', !qq('.modal-acoes button').some((x) => /Chegou/.test(x.innerText)));
+    // pedir de novo
+    await clic(qq('.modal-acoes button').find((x) => /Pedir de novo/.test(x.innerText))); await esp(300);
+    ok('pedir de novo: copia os itens para um pedido novo', App.args[0] === 'pedido' && !/Editando/.test(tela()) && qq('#prCorpo [data-i]').length === ped.itens.length);
+    await clic('#pGerar'); await esp(700); await fecharModais();
+    const copia = DB.pedidos()[0];
+    ok('pedir de novo: número novo', copia.id !== ped.id && copia.numero === ped.numero + 1);
+    await clic('[data-f="aberto"]'); await clic(`[data-ped="${copia.id}"]`); await clic(qq('.modal-acoes button').find((x) => /Cancelar pedido/.test(x.innerText))); await esp(200); await clic('.modal-acoes .btn-perigo'); await esp(300);
+    ok('cancelar pedido: fica como cancelado e o estoque não muda', copia.status === 'cancelado' && p.estoque === est + qtdP);
+    await clic('[data-f="cancelado"]'); ok('filtro “Cancelados” mostra o pedido', !!q(`[data-ped="${copia.id}"]`));
     await ir('produtos'); await clic('[data-editar]', linha()); await clic('.modal-acoes .btn-perigo'); await esp(300);
     ok('excluir produto: some da lista', p.excluido === true && !/Shampoo de teste/.test(tela()));
     await entrar('funcionario'); await ir('produtos'); ok('funcionário não abre “produtos”', App.rota !== 'produtos'); await entrar('dono');

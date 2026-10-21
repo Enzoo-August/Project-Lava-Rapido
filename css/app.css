@@ -496,3 +496,15 @@ body *:not(input):not(textarea):not(select) { caret-color: transparent; }
 .alerta-aviso { padding-right: 46px; }
 .alerta-aviso > [data-fechar-aviso] { position: absolute; top: 6px; right: 6px; }
 @media (max-width: 560px) { .linha.prod .linha-txt { flex-basis: 100%; } .linha.prod [data-pedir], .linha.prod .sub { margin-left: auto; } }
+/* opções em pílulas (forma de pagamento, frete, filtros) */
+.opcoes { display: flex; flex-wrap: wrap; gap: 8px; }
+.opcoes button { min-height: 44px; padding: 8px 14px; border-radius: 99px; border: 1.5px solid var(--linha); background: var(--sup); font-weight: 700; font-size: 14px; color: var(--tinta2); }
+.opcoes button.ativo { background: var(--marca); border-color: var(--marca); color: var(--marca-txt); }
+.rot { font-weight: 700; font-size: 14px; color: var(--tinta2); }
+.sub-tit { font-size: 15px; margin-top: 12px; }
+.vindo { color: var(--ok); font-weight: 700; }
+.linha-txt .chip-st { padding: 2px 7px; font-size: 11px; vertical-align: middle; }
+/* janela do pedido de compra: botões em grade para sobrar espaço para o pedido */
+.modal-pedido .modal-acoes { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+.modal-pedido .modal-acoes .btn:first-child { grid-column: 1 / -1; }
+.modal-pedido .modal-acoes .btn { min-height: 46px; width: 100%; }

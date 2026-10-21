@@ -72,6 +72,8 @@ window.aud = async (perfil, placa) => {
     location.hash = '#/produtos'; await esp(300);
     if (await clic('#pNovo')) { medir('produtos/janela novo produto'); await clic('.modal [data-fechar]'); await esp(200); }
     if (await clic('#pFaltam')) { await esp(300); medir('produtos/pedido montado'); }
+    if (await clic('#pAdd')) { medir('produtos/janela pôr no pedido'); if (await clic('#adNovo')) { await esp(200); medir('produtos/janela produto novo'); } await clic('.modal [data-fechar]'); await esp(200); }
+    if (await clic('#pGerar')) { await esp(900); medir('produtos/janela do pedido'); await clic('.modal [data-fechar]'); await esp(200); }
   }
 
   const unicos = [...new Set(prob)];

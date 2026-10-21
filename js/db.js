@@ -219,16 +219,26 @@
   };
   DB.pedidos = () => Store.s.pedidos.filter((p) => !p.excluido).sort((a, b) => (a.criado_em < b.criado_em ? 1 : -1));
   DB.salvarPedido = (p, dados) => {
-    if (!p) p = { id: U.uuid(), lava_id: lavaId(), numero: Store.s.pedidos.reduce((m, x) => Math.max(m, x.numero || 0), 0) + 1, itens: [], total: 0, fornecedor: '', obs: '', status: 'aberto', criado_por: App.user.nome, criado_em: agoraIso(), recebido_em: null, excluido: false };
+    if (!p) p = { id: U.uuid(), lava_id: lavaId(), numero: Store.s.pedidos.reduce((m, x) => Math.max(m, x.numero || 0), 0) + 1, itens: [], fornecedor: '', fone: '', pagamento: '', condicao: '', frete_tipo: 'gratis', frete: 0, desconto: 0, entrega: '', obs: '', status: 'aberto', criado_por: App.user.nome, criado_em: agoraIso(), recebido_em: null, despesa_id: null, excluido: false };
     Object.assign(p, dados);
-    p.total = (p.itens || []).reduce((t, i) => t + (Number(i.qtd) || 0) * (Number(i.preco) || 0), 0);
+    p.subtotal = (p.itens || []).reduce((t, i) => t + (Number(i.qtd) || 0) * (Number(i.preco) || 0), 0);
+    p.total = Math.max(0, p.subtotal - Math.min(p.subtotal, Number(p.desconto) || 0) + (p.frete_tipo === 'pago' ? Number(p.frete) || 0 : 0));
     return DB.gravar('pedidos', p);
   };
-  // pedido chegou: soma as quantidades no estoque (uma vez só)
-  DB.receberPedido = (p) => {
+  // pedido chegou: soma as quantidades no estoque (uma vez só); produto novo marcado entra no estoque;
+  // com { despesa: true }, o total vai para as despesas do mês (Produtos)
+  DB.receberPedido = (p, o) => {
     if (p.status === 'recebido') return p;
-    for (const i of p.itens || []) { const pr = Store.por('produtos', i.produto_id); if (pr) DB.salvarProduto(pr, { estoque: (Number(pr.estoque) || 0) + (Number(i.qtd) || 0) }); }
-    return DB.salvarPedido(p, { status: 'recebido', recebido_em: agoraIso() });
+    o = o || {};
+    const itens = (p.itens || []).map((i) => {
+      const pr = i.produto_id ? Store.por('produtos', i.produto_id) : null;
+      if (pr) { DB.salvarProduto(pr, { estoque: (Number(pr.estoque) || 0) + (Number(i.qtd) || 0), excluido: false }); return i; }
+      if (i.cadastrar) { const novo = DB.salvarProduto(null, { nome: i.nome, unidade: i.unidade || 'un', preco: Number(i.preco) || 0, estoque: Number(i.qtd) || 0, minimo: 1, fornecedor: p.fornecedor || '' }); return { ...i, produto_id: novo.id }; }
+      return i;
+    });
+    let despesa_id = p.despesa_id || null;
+    if (o.despesa && !despesa_id && p.total > 0) despesa_id = DB.salvarDespesa(null, { descricao: `Pedido de compra nº ${p.numero}${p.fornecedor ? ' — ' + p.fornecedor : ''}`, valor: p.total, data: U.dia(), categoria: 'Produtos' }).id;
+    return DB.salvarPedido(p, { itens, status: 'recebido', recebido_em: agoraIso(), despesa_id });
   };
   DB.salvarServico = (s, dados) => {
     if (!s) s = { id: U.uuid(), lava_id: lavaId(), nome: '', precos: {}, minutos: 30, ordem: Store.s.servicos.reduce((m, x) => Math.max(m, x.ordem || 0), 0) + 1, ativo: true };
