@@ -316,10 +316,19 @@ window.testeTudo = async () => {
     campo(modal(), 'qtd', '2'); campo(modal(), 'preco', '80'); campo(modal(), 'unidade', 'pote 500 g'); await clic('.modal-acoes .btn-marca'); await esp(300);
     ok('produto novo entra no pedido marcado como “novo”', /Cera de carnaúba/.test(tela()) && /novo/.test(qq('#prCorpo [data-i]').find((x) => x.innerText.includes('Cera')).innerText));
     // pagamento, frete, desconto, prazo
-    await clic('#pPag [data-pag="Boleto"]'); const cnd = q('#pCond'); cnd.value = '28 dias'; cnd.dispatchEvent(new Event('input'));
-    await clic('#pFrete [data-frete="pago"]'); ok('frete pago mostra o campo do valor', !q('#pFreteV').hidden);
+    ok('pagamento: só Pix, Boleto, Cartão de crédito, Dinheiro e A combinar', qq('#pPag [data-pag]').map((x) => x.dataset.pag).join() === 'Pix,Boleto,Cartão de crédito,Dinheiro,A combinar');
+    ok('Pix: não pede mais nada', !q('#pCondBox').innerHTML.trim());
+    await clic('#pPag [data-pag="Cartão de crédito"]');
+    ok('cartão de crédito: pergunta as parcelas (à vista até 12x, com o valor)', qq('#pParc option').length === 12 && /^À vista/.test(q('#pParc option').textContent) && /^3x de R\$/.test(qq('#pParc option')[2].textContent));
+    await clic('#pPag [data-pag="Dinheiro"]'); ok('dinheiro: não pede parcelas', !q('#pParc'));
+    await clic('#pPag [data-pag="Boleto"]'); ok('boleto: pergunta o vencimento', qq('#pBol [data-bol]').length >= 6 && !q('#pParc'));
+    await clic('#pBol [data-bol="28 dias"]');
+    ok('frete grátis: não pede valor', q('#pFrete .ativo').dataset.frete === 'gratis' && q('#pFreteV').hidden);
+    await clic('#pFrete [data-frete="retirar"]'); ok('vou buscar: não pede valor', q('#pFreteV').hidden);
+    await clic('#pFrete [data-frete="pago"]'); ok('frete pago: pede só o valor do frete', !q('#pFreteV').hidden);
     const fr = q('#pFreteN'); fr.value = '25'; fr.dispatchEvent(new Event('input'));
-    const ds = q('#pDesc'); ds.value = '10'; ds.dispatchEvent(new Event('input'));
+    ok('desconto fica escondido até tocar em “o fornecedor deu desconto”', q('#pDescV').hidden && !q('#pDescL').hidden);
+    await clic('#pDescL'); const ds = q('#pDesc'); ds.value = '10'; ds.dispatchEvent(new Event('input'));
     const fo = q('#pForn'); fo.value = 'Distribuidora Teste'; fo.dispatchEvent(new Event('input'));
     const fn = q('#pFone'); fn.value = '11 98765-4321'; fn.dispatchEvent(new Event('input'));
     const en = q('#pEntrega'); en.value = U.dia(U.somaDias(new Date(), 5)); en.dispatchEvent(new Event('change'));
@@ -342,7 +351,7 @@ window.testeTudo = async () => {
     ok('janela tem Imprimir e WhatsApp do fornecedor', qq('.modal-acoes button').some((x) => /Imprimir/.test(x.innerText)) && qq('.modal-acoes button').some((x) => /WhatsApp do fornecedor/.test(x.innerText)));
     // editar mantém o número
     await clic(qq('.modal-acoes button').find((x) => /Editar pedido/.test(x.innerText))); await esp(300);
-    ok('editar: volta para o pedido com tudo preenchido', App.args[0] === 'pedido' && /Editando o pedido nº/.test(tela()) && q('#pCond').value === '28 dias' && q('#pFrete .ativo').dataset.frete === 'pago');
+    ok('editar: volta para o pedido com tudo preenchido', App.args[0] === 'pedido' && /Editando o pedido nº/.test(tela()) && q('#pBol .ativo').dataset.bol === '28 dias' && q('#pFrete .ativo').dataset.frete === 'pago' && !q('#pDescV').hidden);
     await clic('[data-q="1"]', itP()); await clic('#pGerar'); await esp(700); await fecharModais();
     ok('editar: salva no mesmo número, sem criar outro', DB.pedidos().length === nPed + 1 && DB.pedidos()[0].id === ped.id && ped.itens.find((i) => i.produto_id === p.id).qtd === q0 + 2);
     // chegou: estoque, produto novo e despesa

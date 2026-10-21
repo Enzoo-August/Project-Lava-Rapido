@@ -3,7 +3,8 @@
    de compra ao fornecedor.
    - Estoque: valor, embalagem, quanto tem, aviso de acabando.
    - Pedido: itens do estoque ou produtos novos, fornecedor,
-     forma de pagamento, frete, desconto e prazo. Vira PDF com a
+     forma de pagamento (parcelas no cartão, vencimento no boleto),
+     frete e prazo. Vira PDF com a
      logo do lava (salvar como, imprimir, mandar no WhatsApp).
    - Chegou: soma no estoque (produto novo pode entrar no estoque)
      e lança o valor nas despesas do mês.
@@ -11,14 +12,15 @@
    ========================================================= */
 (function () {
   const ABAS = [['estoque', 'Estoque'], ['pedido', 'Pedido'], ['historico', 'Pedidos feitos']];
-  const PAGAMENTOS = ['Pix', 'Boleto', 'Cartão de crédito', 'Cartão de débito', 'Dinheiro', 'Transferência', 'A combinar'];
+  const PAGAMENTOS = ['Pix', 'Boleto', 'Cartão de crédito', 'Dinheiro', 'A combinar'];
+  const VENC_BOLETO = ['À vista', '7 dias', '14 dias', '21 dias', '28 dias', '30 dias', '30/60 dias', '30/60/90 dias'];
   const FRETES = [['gratis', 'Grátis'], ['pago', 'Pago'], ['retirar', 'Vou buscar']];
   const qtdTxt = (n) => String(Math.round((Number(n) || 0) * 100) / 100).replace('.', ',');
   const toque = () => matchMedia('(pointer: coarse)').matches;
 
   // ---------------- pedido em montagem (rascunho neste aparelho) ----------------
   const chave = () => 'pedido.' + (DB.lava().id || 'demo');
-  const novoRascunho = () => ({ itens: [], fornecedor: '', fone: '', pagamento: 'Pix', condicao: '', frete_tipo: 'gratis', frete: 0, desconto: 0, entrega: '', obs: '', editando: null });
+  const novoRascunho = () => ({ itens: [], fornecedor: '', fone: '', pagamento: 'Pix', parcelas: 1, boleto: 'À vista', condicao: '', frete_tipo: 'gratis', frete: 0, desconto: 0, entrega: '', obs: '', editando: null });
   const rascunho = () => {
     let r = Store.pref(chave());
     if (Array.isArray(r)) r = { itens: r };   // formato antigo: só a lista
@@ -28,7 +30,14 @@
       if (i.produto_id && (!p || p.excluido)) return null;
       return { produto_id: i.produto_id || null, nome: i.nome || (p ? p.nome : ''), unidade: i.unidade != null ? i.unidade : (p ? p.unidade : ''), qtd: Number(i.qtd) || 0, preco: i.preco != null ? Number(i.preco) : (p ? Number(p.preco) || 0 : 0), cadastrar: !!i.cadastrar };
     }).filter((i) => i && i.qtd > 0);
+    if (!PAGAMENTOS.includes(r.pagamento)) r.pagamento = 'A combinar';   // rascunho antigo (débito, transferência)
     return r;
+  };
+  // texto da condição: só o cartão (parcelas) e o boleto (vencimento) têm
+  const condicaoDe = (r) => {
+    if (r.pagamento === 'Cartão de crédito') { const n = Number(r.parcelas) || 1; return n > 1 ? `${n}x de ${U.brl(contas(r).total / n)}` : 'à vista'; }
+    if (r.pagamento === 'Boleto') return String(r.boleto || 'À vista').toLowerCase();
+    return '';
   };
   const guardar = (r) => Store.pref(chave(), r);
   const sugerida = (p) => Math.max(1, Math.ceil((Number(p.minimo) || 0) * 2 - (Number(p.estoque) || 0)));
@@ -279,7 +288,7 @@
       const atual = rascunho();
       if (atual.itens.length && !(await U.confirmar('Trocar o pedido em montagem?', 'Já tem itens no pedido que você está montando. Eles serão trocados por este.', 'Trocar'))) return;
       const base = novoRascunho(), copia = {};
-      for (const k of ['itens', 'fornecedor', 'fone', 'pagamento', 'condicao', 'frete_tipo', 'frete', 'desconto', 'obs']) copia[k] = JSON.parse(JSON.stringify(p[k] != null ? p[k] : base[k]));
+      for (const k of ['itens', 'fornecedor', 'fone', 'pagamento', 'parcelas', 'boleto', 'condicao', 'frete_tipo', 'frete', 'desconto', 'obs']) copia[k] = JSON.parse(JSON.stringify(p[k] != null ? p[k] : base[k]));
       guardar({ ...base, ...copia, entrega: r === 'editar' ? p.entrega || '' : '', editando: r === 'editar' ? p.id : null });
       U.toast(r === 'editar' ? `Editando o pedido nº ${p.numero}` : 'Itens copiados para um pedido novo');
       return App.ir('produtos/pedido');
@@ -373,22 +382,27 @@
       </section>
 
       <section class="cartao">
-        <div class="cartao-cab"><h3>Pagamento e entrega</h3></div>
-        <span class="rot">Forma de pagamento</span>
+        <div class="cartao-cab"><h3>Pagamento</h3></div>
         <div class="opcoes" id="pPag">${PAGAMENTOS.map((x) => `<button type="button" data-pag="${U.esc(x)}" class="${r.pagamento === x ? 'ativo' : ''}">${U.esc(x)}</button>`).join('')}</div>
-        <label class="campo"><span>Condição (opcional)</span><input id="pCond" value="${U.esc(r.condicao)}" placeholder="Ex.: à vista, 30 dias, 3x sem juros"></label>
-        <span class="rot">Frete</span>
+        <div id="pCondBox"></div>
+      </section>
+
+      <section class="cartao">
+        <div class="cartao-cab"><h3>Frete</h3></div>
         <div class="opcoes" id="pFrete">${FRETES.map(([id, t]) => `<button type="button" data-frete="${id}" class="${r.frete_tipo === id ? 'ativo' : ''}">${t}</button>`).join('')}</div>
-        <div class="lado">
-          <label class="campo" id="pFreteV" ${r.frete_tipo === 'pago' ? '' : 'hidden'}><span>Valor do frete (R$)</span><input id="pFreteN" inputmode="decimal" value="${r.frete ? qtdTxt(r.frete) : ''}" placeholder="0,00"></label>
-          <label class="campo"><span>Desconto (R$)</span><input id="pDesc" inputmode="decimal" value="${r.desconto ? qtdTxt(r.desconto) : ''}" placeholder="0,00"></label>
-        </div>
+        <label class="campo" id="pFreteV" ${r.frete_tipo === 'pago' ? '' : 'hidden'}><span>Valor do frete (R$)</span><input id="pFreteN" inputmode="decimal" value="${r.frete ? qtdTxt(r.frete) : ''}" placeholder="0,00"></label>
+      </section>
+
+      <section class="cartao">
+        <div class="cartao-cab"><h3>Entrega</h3></div>
         <label class="campo"><span>Entregar até (opcional)</span><input id="pEntrega" type="date" value="${U.esc(r.entrega)}" min="${U.dia()}"></label>
         <label class="campo"><span>Observação (opcional)</span><input id="pObs" value="${U.esc(r.obs)}" placeholder="Ex.: entregar pela manhã" autocapitalize="sentences"></label>
       </section>
 
       <section class="cartao">
         <div id="pTotais"></div>
+        <label class="campo" id="pDescV" ${r.desconto ? '' : 'hidden'}><span>Desconto que o fornecedor deu (R$)</span><input id="pDesc" inputmode="decimal" value="${r.desconto ? qtdTxt(r.desconto) : ''}" placeholder="0,00"></label>
+        <button type="button" class="link" id="pDescL" ${r.desconto ? 'hidden' : ''}>+ O fornecedor deu desconto</button>
         ${bloq ? '' : `<button type="button" class="btn btn-marca btn-g btn-bloco" id="pGerar">${U.icon('check')}<span>${editando ? `Salvar o pedido nº ${editando.numero}` : 'Salvar pedido e gerar PDF'}</span></button>`}
         <button type="button" class="link centro" id="pLimpar">${editando ? 'Desistir de editar' : 'Esvaziar pedido'}</button>
       </section>`;
@@ -397,18 +411,33 @@
       const x = rascunho(), c = contas(x);
       el.querySelector('#pTotais').innerHTML = `${c.desc || x.frete_tipo === 'pago' ? `<div class="par"><span>Produtos</span><b>${U.brl(c.sub)}</b></div>` : ''}${c.desc ? `<div class="par"><span>Desconto</span><b>− ${U.brl(c.desc)}</b></div>` : ''}${x.frete_tipo === 'pago' ? `<div class="par"><span>Frete</span><b>${c.frete ? U.brl(c.frete) : 'a pagar'}</b></div>` : ''}<div class="par total"><span>Total</span><b>${U.brl(c.total)}</b></div>`;
     };
+    // condição do pagamento: parcelas no cartão de crédito, vencimento no boleto
+    const pintarCond = () => {
+      const x = rascunho(), box = el.querySelector('#pCondBox'), t = contas(x).total;
+      if (x.pagamento === 'Cartão de crédito') {
+        box.innerHTML = `<label class="campo"><span>Parcelas</span><select id="pParc">${Array.from({ length: 12 }, (_, k) => k + 1).map((n) => `<option value="${n}" ${Number(x.parcelas) === n ? 'selected' : ''}>${n === 1 ? `À vista (${U.brl(t)})` : `${n}x de ${U.brl(t / n)}`}</option>`).join('')}</select></label>`;
+        box.querySelector('#pParc').onchange = (e) => muda('parcelas', Number(e.target.value));
+      } else if (x.pagamento === 'Boleto') {
+        box.innerHTML = `<span class="rot">Vencimento</span><div class="opcoes" id="pBol">${VENC_BOLETO.map((v) => `<button type="button" data-bol="${v}" class="${x.boleto === v ? 'ativo' : ''}">${v}</button>`).join('')}</div>`;
+        box.querySelector('#pBol').onclick = (e) => { const b = e.target.closest('[data-bol]'); if (!b) return; muda('boleto', b.dataset.bol); box.querySelectorAll('[data-bol]').forEach((y) => y.classList.toggle('ativo', y === b)); };
+      } else box.innerHTML = '';
+    };
     totais();
     // campos: guardam no rascunho enquanto digita (sem redesenhar, para não perder o teclado)
-    const muda = (k, v) => { const x = rascunho(); x[k] = v; guardar(x); totais(); };
+    const muda = (k, v) => {
+      const x = rascunho(); x[k] = v; guardar(x); totais();
+      const pc = el.querySelector('#pParc'); if (pc && k !== 'parcelas') { const t = contas(x).total; Array.from(pc.options).forEach((o, i) => { o.textContent = i ? `${i + 1}x de ${U.brl(t / (i + 1))}` : `À vista (${U.brl(t)})`; }); }
+    };
+    pintarCond();
     el.querySelector('#pForn').oninput = (e) => { const v = e.target.value.trim(); muda('fornecedor', v); const f = forn.get(v), fo = el.querySelector('#pFone'); if (f && !fo.value) { fo.value = U.telFmt(f); muda('fone', U.telDig(f)); } };
     el.querySelector('#pFone').oninput = (e) => muda('fone', U.telDig(e.target.value));
-    el.querySelector('#pCond').oninput = (e) => muda('condicao', e.target.value.trim());
     el.querySelector('#pFreteN').oninput = (e) => muda('frete', U.num(e.target.value));
     el.querySelector('#pDesc').oninput = (e) => muda('desconto', U.num(e.target.value));
+    el.querySelector('#pDescL').onclick = (e) => { e.currentTarget.hidden = true; el.querySelector('#pDescV').hidden = false; el.querySelector('#pDesc').focus(); };
     el.querySelector('#pEntrega').onchange = (e) => muda('entrega', e.target.value);
     el.querySelector('#pObs').oninput = (e) => muda('obs', e.target.value.trim());
-    el.querySelector('#pPag').onclick = (e) => { const b = e.target.closest('[data-pag]'); if (!b) return; muda('pagamento', b.dataset.pag); el.querySelectorAll('#pPag button').forEach((x) => x.classList.toggle('ativo', x === b)); };
-    el.querySelector('#pFrete').onclick = (e) => { const b = e.target.closest('[data-frete]'); if (!b) return; muda('frete_tipo', b.dataset.frete); el.querySelectorAll('#pFrete button').forEach((x) => x.classList.toggle('ativo', x === b)); el.querySelector('#pFreteV').hidden = b.dataset.frete !== 'pago'; totais(); };
+    el.querySelector('#pPag').onclick = (e) => { const b = e.target.closest('[data-pag]'); if (!b) return; muda('pagamento', b.dataset.pag); el.querySelectorAll('#pPag button').forEach((x) => x.classList.toggle('ativo', x === b)); pintarCond(); };
+    el.querySelector('#pFrete').onclick = (e) => { const b = e.target.closest('[data-frete]'); if (!b) return; muda('frete_tipo', b.dataset.frete); if (b.dataset.frete !== 'pago') { muda('frete', 0); el.querySelector('#pFreteN').value = ''; } el.querySelectorAll('#pFrete button').forEach((x) => x.classList.toggle('ativo', x === b)); el.querySelector('#pFreteV').hidden = b.dataset.frete !== 'pago'; totais(); };
 
     const a = el.querySelector('#pAdd'); if (a) a.onclick = async () => { if (await adicionar()) App.render(); };
     el.querySelectorAll('[data-i]').forEach((row) => {
@@ -431,7 +460,7 @@
     if (g) g.onclick = async () => {
       const x = rascunho();
       if (x.frete_tipo === 'pago' && !x.frete && !(await U.confirmar('Frete sem valor', 'Você marcou frete pago, mas não pôs o valor. Salvar assim mesmo (o PDF mostra “a pagar”)?', 'Salvar assim'))) return;
-      const dados = { itens: x.itens, fornecedor: x.fornecedor, fone: x.fone, pagamento: x.pagamento, condicao: x.condicao, frete_tipo: x.frete_tipo, frete: x.frete_tipo === 'pago' ? x.frete : 0, desconto: x.desconto, entrega: x.entrega, obs: x.obs };
+      const dados = { itens: x.itens, fornecedor: x.fornecedor, fone: x.fone, pagamento: x.pagamento, parcelas: x.pagamento === 'Cartão de crédito' ? Number(x.parcelas) || 1 : null, boleto: x.pagamento === 'Boleto' ? x.boleto : '', condicao: condicaoDe(x), frete_tipo: x.frete_tipo, frete: x.frete_tipo === 'pago' ? x.frete : 0, desconto: x.desconto, entrega: x.entrega, obs: x.obs };
       const ped = DB.salvarPedido(editando && editando.status === 'aberto' ? editando : null, dados);
       // o valor de cada produto do estoque acompanha o último preço pedido
       for (const i of ped.itens) { const pr = i.produto_id && Store.por('produtos', i.produto_id); if (pr && i.preco && Number(pr.preco) !== Number(i.preco)) DB.salvarProduto(pr, { preco: i.preco }); }
