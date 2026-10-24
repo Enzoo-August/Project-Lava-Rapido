@@ -12,12 +12,15 @@
 
   // linha de tempo: quando chegou e a previsão
   const tempoTxt = (a) => {
-    if (a.status === 'entregue') return `Entregue ${U.hora(a.entregue_em)} · ${U.esc(a.pagamento || 'sem pagamento')}`;
+    if (a.status === 'entregue') return `Entregue ${U.hora(a.entregue_em)} · ${U.esc(a.pagamento === 'Fiado' ? (a.fiado_aberto ? 'fiado (a receber)' : 'fiado (já pago)') : a.pagamento || 'sem pagamento')}`;
     if (a.status === 'pronto') return `Pronto ${U.haQuanto(a.pronto_em)}${a.avisado_em ? ' · cliente avisado' : ''}`;
     // carro que fica mais de um dia mostra a data, não só a hora
     const q = (d) => U.dataHora(d).replace('hoje ', '');
     const espera = a.obs && a.obs.includes('Cliente espera no local');
-    const prev = a.previsao ? (DB.atrasado(a) ? `<b class="atraso">atrasado · cliente vinha ${q(a.previsao)}</b>` : espera ? `<b>cliente espera aqui</b> · pronto ${q(a.previsao)}` : `cliente vem ${q(a.previsao)}`) : '';
+    const leva = DB.ehLeva(a);
+    const prev = leva ? (a.previsao && DB.atrasado(a) ? `<b class="atraso">atrasado · era para entregar ${q(a.previsao)}</b>` : `<b>leva e traz</b>${a.previsao ? ' · entregar ' + q(a.previsao) : ''}`)
+      : a.previsao ? (DB.atrasado(a) ? `<b class="atraso">atrasado · cliente vinha ${q(a.previsao)}</b>` : espera ? `<b>cliente espera aqui</b> · pronto ${q(a.previsao)}` : `cliente vem ${q(a.previsao)}`)
+      : espera ? '<b>cliente espera aqui</b>' : '';
     return `Chegou ${q(a.entrada_em)} (${U.haQuanto(a.entrada_em)})${prev ? ' · ' + prev : ''}`;
   };
 
@@ -114,13 +117,14 @@
       html: `<div class="entrega-resumo">${U.placaHtml(a.placa, 'grande')}<b>${U.esc(a.veiculo || '')}</b><span>${U.esc(c ? c.nome : '')}</span></div>
         <div class="total-grande"><small>Total a receber</small><b>${U.brl(a.total)}</b>${a.desconto ? `<small>já com ${U.brl(a.desconto)} de desconto</small>` : ''}</div>
         <p class="rotulo">Como o cliente pagou?</p>
-        <div class="grade-pag">${cfg.pagamentos.map((p) => `<button type="button" class="btn btn-g" data-pag="${U.esc(p)}">${U.esc(p)}</button>`).join('')}</div>`,
-      aoAbrir: (el, fechar) => { let foi = false; el.querySelector('.grade-pag').onclick = (e) => { const b = e.target.closest('[data-pag]'); if (!b || foi) return; foi = true; fechar(b.dataset.pag); }; }
+        <div class="grade-pag">${cfg.pagamentos.map((p) => `<button type="button" class="btn btn-g" data-pag="${U.esc(p)}">${U.esc(p)}</button>`).join('')}</div>
+        ${cfg.fiado !== false && c ? `<button type="button" class="btn btn-g btn-bloco pag-fiado" data-pag="Fiado">${U.icon('relogio')}<span>Fiado: ${U.esc(U.primeiroNome(c.nome))} paga depois</span></button>` : ''}`,
+      aoAbrir: (el, fechar) => { let foi = false; el.querySelector('.modal-corpo').onclick = (e) => { const b = e.target.closest('[data-pag]'); if (!b || foi) return; foi = true; fechar(b.dataset.pag); }; }
     });
     if (!pagamento) return;
     DB.status(a, 'entregue', { pagamento });
     redesenhar();
-    U.toast(`${a.veiculo || 'Carro'} entregue · ${pagamento}`);
+    U.toast(pagamento === 'Fiado' ? `${a.veiculo || 'Carro'} entregue · ficou no fiado de ${U.primeiroNome(c.nome)}` : `${a.veiculo || 'Carro'} entregue · ${pagamento}`);
 
     // cliente novo → pedir avaliação no Google (uma vez só)
     const google = DB.marca().google;

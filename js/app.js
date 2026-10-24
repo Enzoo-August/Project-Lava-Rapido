@@ -187,8 +187,10 @@
     { r: 'clientes', txt: 'Clientes', ic: 'pessoas', perfis: ['dono'], mais: true },
     { r: 'resultados', txt: 'Resultados', ic: 'grafico', perfis: ['dono'] },
     { r: 'financeiro', txt: 'Financeiro', ic: 'carteira', perfis: ['dono'], mais: true },
+    { r: 'fiado', txt: 'Fiado', ic: 'relogio', perfis: ['dono'], mais: true },
     { r: 'produtos', txt: 'Produtos', ic: 'caixa', perfis: ['dono'], mais: true },
     { r: 'ajustes', txt: 'Ajustes', ic: 'ajustes', perfis: ['dono'], mais: true },
+    { r: 'backup', txt: 'Backup dos dados', ic: 'nuvem', perfis: ['dono'], mais: true },
     { r: 'ajuda', txt: 'Ajuda', ic: 'ajuda', perfis: ['dono'], mais: true },
     { r: 'instalar', txt: 'Instalar o app', ic: 'celular', perfis: ['dono'], mais: true }
   ];

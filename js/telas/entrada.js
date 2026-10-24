@@ -180,9 +180,12 @@
     return { itens, soma, valor, desconto, total: Math.max(0, valor - desconto), minutos: DB.minutos(E.ids) };
   };
   const amanha18 = () => { const d = U.somaDias(U.inicioDia(), 1); d.setHours(18, 0, 0, 0); return d.toISOString(); };
-  const quandoFica = () => (E.previsaoEm ? new Date(E.previsaoEm) : new Date(Date.now() + E.previsao * 60000));
+  const quandoFica = () => (E.previsaoEm ? new Date(E.previsaoEm) : E.previsao ? new Date(Date.now() + E.previsao * 60000) : null);
+  const temObs = (o) => (E.obs ? E.obs.split(' · ') : []).includes(o);
+  const trocaObs = (o, ligar) => { const l = (E.obs ? E.obs.split(' · ') : []).filter((x) => x !== o); if (ligar) l.push(o); E.obs = l.join(' · '); };
+  // texto curto do que foi combinado (rodapé e tela final)
+  const combinadoTxt = (leva, espera, quando) => (leva ? `Leva e traz${quando ? ' · entregar ' + quandoTxt(quando) : ''}` : espera ? `Cliente espera no local${quando ? ' · pronto ' + quandoTxt(quando) : ''}` : quando ? `Cliente vem buscar ${quandoTxt(quando)}` : 'Sem hora combinada');
   const quandoTxt = (d) => (U.dia(d) === U.dia() ? 'às ' + U.hora(d) : `${U.SEMANA[new Date(d).getDay()].toLowerCase()} ${U.dataCurta(d)} às ${U.hora(d)}`);
-  const previsaoPadrao = (min) => (PREVISOES.find((p) => p[0] >= min + 10 + DB.abertos().filter((a) => a.status !== 'pronto').length * 10) || PREVISOES[PREVISOES.length - 1])[0];
 
   function fidelidadeHtml() {
     const f = DB.fidelidade(E.cli, 1);
@@ -206,9 +209,7 @@
   }
 
   function passoServico() {
-    // serviço demorado (polimento, vitrificação…) já sugere entregar no dia seguinte
-    if (E.previsao == null && !E.previsaoEm) { if (DB.minutos(E.ids) > 300) E.previsaoEm = amanha18(); else E.previsao = previsaoPadrao(DB.minutos(E.ids)); }
-    const t = totais(), c = E.cli, temServico = E.ids.length + E.extras.length > 0;
+    const t = totais(), perguntar = DB.cfg().perguntarEntrega !== false, leva = temObs(DB.LEVA), espera = temObs(ESPERA), quando = quandoFica(), c = E.cli, temServico = E.ids.length + E.extras.length > 0;
     const podeValor = DB.ehDono() || DB.cfg().funcionarioMudaValor;
     tela.innerHTML = `<div class="passo passo-servico">
       ${cab('Qual serviço?')}
@@ -219,16 +220,17 @@
       ${fidelidadeHtml()}
       <div class="servs">${Atend.servicosHtml(E.veic.porte, E.ids, E.vals)}${Atend.extrasHtml(E.extras)}
         <button type="button" class="serv livre" data-acao="extra">${U.icon('mais')}<span class="serv-nome"><b>Outro serviço</b><small>escrever o nome e o valor</small></span></button></div>
-      <p class="rotulo">Quando o cliente vem buscar?</p>
-      <p class="mudo pequeno pergunte">Pergunte: “O senhor vai esperar aqui ou tem um horário para buscar?”</p>
-      <div class="chips previsoes"><button type="button" class="chip${E.obs.includes(ESPERA) ? ' ativo' : ''}" data-acao="espera">${U.icon('pessoas')} Vai esperar aqui</button>${PREVISOES.map(([m, txt]) => `<button type="button" class="chip${!E.previsaoEm && E.previsao === m ? ' ativo' : ''}" data-prev="${m}">${txt}</button>`).join('')}
-        <button type="button" class="chip${E.previsaoEm ? ' ativo' : ''}" data-acao="outrodia">${E.previsaoEm ? U.capitalizar(quandoTxt(E.previsaoEm)) : 'Escolher horário'}</button></div>
+      ${perguntar ? `<p class="rotulo">Como o carro volta? <span class="mudo">(se precisar)</span></p>
+      <div class="chips"><button type="button" class="chip${leva ? ' ativo' : ''}" data-acao="leva">${U.icon('carro')} Leva e traz (a gente entrega)</button><button type="button" class="chip${espera ? ' ativo' : ''}" data-acao="espera">${U.icon('pessoas')} Vai esperar aqui</button></div>
+      <p class="rotulo">${leva ? 'Que horas entregar?' : 'Que horas o cliente vem buscar?'} <span class="mudo">(se tiver hora combinada)</span></p>
+      <div class="chips previsoes">${PREVISOES.map(([m, txt]) => `<button type="button" class="chip${!E.previsaoEm && E.previsao === m ? ' ativo' : ''}" data-prev="${m}">em ${txt}</button>`).join('')}
+        <button type="button" class="chip${E.previsaoEm ? ' ativo' : ''}" data-acao="outrodia">${U.icon('calendario')} ${E.previsaoEm ? U.capitalizar(quandoTxt(E.previsaoEm)) : 'Escolher dia e hora'}</button></div>` : ''}
       <p class="rotulo">Observação <span class="mudo">(se precisar)</span></p>
       <div class="chips">${OBS_RAPIDAS.map((o) => `<button type="button" class="chip${E.obs.includes(o) ? ' ativo' : ''}" data-obs="${U.esc(o)}">${o}</button>`).join('')}</div>
       <div class="pe-fixo">
         <div class="pe-total">
           <span>${t.desconto ? `<s>${U.brl(t.valor)}</s> ` : ''}<b>${U.brl(t.total)}</b>${t.desconto ? ` <em>−${E.nivel.desconto}%</em>` : ''}</span>
-          <small>${E.obs.includes(ESPERA) ? 'espera no local · pronto' : 'cliente vem'} ${quandoTxt(quandoFica())}</small>
+          ${perguntar ? `<small>${combinadoTxt(leva, espera, quando)}</small>` : ''}
           ${podeValor ? '<button type="button" class="link" data-acao="valor">ajustar valor</button>' : ''}
         </div>
         <button class="btn btn-ok btn-g" type="button" data-acao="confirmar" ${temServico ? '' : 'disabled'}>${U.icon('check')}<span>Confirmar</span></button>
@@ -259,7 +261,7 @@
       <h2 class="pergunta">Entrada registrada!</h2>
       <div class="feito-ficha"><small>Ficha</small><b>${a.numero}</b></div>
       <div class="resumo-carro grande centro">${U.placaHtml(a.placa)}<div><b>${U.esc(a.veiculo)}</b><small>${U.esc(c.nome)}</small></div></div>
-      <p class="centro">${U.esc(a.servicos.map((s) => s.nome).join(' + '))} · <b>${U.brl(a.total)}</b><br>${a.obs && a.obs.includes(ESPERA) ? 'Cliente espera no local · pronto' : 'Cliente vem buscar'} <b>${quandoTxt(a.previsao)}</b></p>
+      <p class="centro">${U.esc(a.servicos.map((s) => s.nome).join(' + '))} · <b>${U.brl(a.total)}</b>${DB.cfg().perguntarEntrega !== false ? `<br><b>${combinadoTxt(DB.ehLeva(a), (a.obs || '').split(' · ').includes(ESPERA), a.previsao)}</b>` : ''}</p>
       ${fid ? `<p class="fidel-linha">${U.icon('presente')}<span>${fid}</span></p>` : ''}
       <p class="fala">Pode dizer: “Pronto, ${U.esc(U.primeiroNome(c.nome))}! Aviso no WhatsApp quando terminar.”</p>
       <div class="pilha">
@@ -297,10 +299,10 @@
         if (!DB.preco(s, E.veic.porte)) { const v = await Atend.pedirValor(s.nome); if (v == null) return; E.vals[id] = v; }
         E.ids = [...E.ids, id];
       }
-      E.valor = null; E.previsao = null; E.previsaoEm = null; return desenhar();
+      E.valor = null; return desenhar();
     }
     if ((b = alvo('[data-tirar-extra]'))) { E.extras = E.extras.filter((x) => x.id !== b.dataset.tirarExtra); E.valor = null; return desenhar(); }
-    if ((b = alvo('[data-prev]'))) { E.previsao = Number(b.dataset.prev); E.previsaoEm = null; return desenhar(); }
+    if ((b = alvo('[data-prev]'))) { const m = Number(b.dataset.prev); E.previsao = !E.previsaoEm && E.previsao === m ? null : m; E.previsaoEm = null; return desenhar(); }
     if ((b = alvo('[data-obs]'))) { const o = b.dataset.obs, l = E.obs ? E.obs.split(' · ') : []; E.obs = (l.includes(o) ? l.filter((x) => x !== o) : [...l, o]).join(' · '); return desenhar(); }
     if ((b = alvo('[data-nivel]'))) { const n = Number(b.dataset.nivel); E.nivel = n ? DB.fidelidade(E.cli, 1).alcancados.find((x) => x.pontos === n) || null : null; return desenhar(); }
     if (!(b = alvo('[data-acao]')) || b.disabled) return;
@@ -311,20 +313,17 @@
     if (acao === 'confirmar') { b.disabled = true; return confirmar(); }
     if (acao === 'outro') { E = novo(); return ir('placa'); }
     if (acao === 'extra') { const x = await Atend.pedirServicoLivre(); if (x) { E.extras = [...E.extras, x]; E.valor = null; desenhar(); } return; }
-    if (acao === 'espera') {
-      const l = E.obs ? E.obs.split(' · ') : [];
-      if (l.includes(ESPERA)) E.obs = l.filter((x) => x !== ESPERA).join(' · ');
-      else { E.obs = [...l, ESPERA].join(' · '); E.previsaoEm = null; E.previsao = previsaoPadrao(DB.minutos(E.ids)); }
-      return desenhar();
-    }
+    // leva e traz e "vai esperar" não andam juntos
+    if (acao === 'espera') { const on = !temObs(ESPERA); trocaObs(ESPERA, on); if (on) trocaObs(DB.LEVA, false); return desenhar(); }
+    if (acao === 'leva') { const on = !temObs(DB.LEVA); trocaObs(DB.LEVA, on); if (on) trocaObs(ESPERA, false); return desenhar(); }
     if (acao === 'outrodia') {
       const d = new Date(E.previsaoEm || (DB.minutos(E.ids) > 300 ? amanha18() : Math.ceil((Date.now() + 2 * 3600e3) / 1800e3) * 1800e3));
       const r = await U.modal({
-        titulo: 'Quando o cliente vem buscar?',
+        titulo: temObs(DB.LEVA) ? 'Quando entregar o carro?' : 'Quando o cliente vem buscar?',
         html: `<div class="lado"><label class="campo"><span>Dia</span><input name="dia" type="date" value="${U.dia(d)}" min="${U.dia()}"></label><label class="campo"><span>Hora</span><input name="hora" type="time" value="${U.hora(d)}"></label></div>`,
-        acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Salvar', cls: 'btn-marca', aoTocar: (el) => { const f = U.campos(el); if (!f.dia || !f.hora) { U.toast('Informe o dia e a hora.', 'bad'); return false; } const q = U.deDia(f.dia); q.setHours(Number(f.hora.slice(0, 2)), Number(f.hora.slice(3, 5)), 0, 0); return q.toISOString(); } }]
+        acoes: [{ txt: E.previsaoEm ? 'Sem hora' : 'Voltar', valor: E.previsaoEm ? 'sem' : false }, { txt: 'Salvar', cls: 'btn-marca', aoTocar: (el) => { const f = U.campos(el); if (!f.dia || !f.hora) { U.toast('Informe o dia e a hora.', 'bad'); return false; } const q = U.deDia(f.dia); q.setHours(Number(f.hora.slice(0, 2)), Number(f.hora.slice(3, 5)), 0, 0); return q.toISOString(); } }]
       });
-      if (r) { E.previsaoEm = r; desenhar(); }
+      if (r === 'sem') { E.previsaoEm = null; E.previsao = null; desenhar(); } else if (r) { E.previsaoEm = r; E.previsao = null; desenhar(); }
       return;
     }
     if (acao === 'comprovante') return U.zap(E.cli.telefone, DB.msg('entrada', E.feito, E.cli));
@@ -349,7 +348,7 @@
     if (E.passo === 'nome') return ir('placa');
     const o = ordem(), i = o.indexOf(E.passo);
     if (i <= 0) return App.voltar();
-    if (o[i - 1] === 'placa') { const cli = E.existente && !E.ag ? null : E.cli, placa = U.semPlaca(E.placa) ? '' : E.placa, ag = E.ag, cliNovo = E.ag ? E.cliNovo : null; E = novo(); E.cli = cli; E.placa = placa; E.ag = ag; if (cliNovo) E.cliNovo = cliNovo; }
+    if (o[i - 1] === 'placa') { const cli = E.existente && !E.ag ? null : E.cli, placa = U.semPlaca(E.placa) ? '' : E.placa, ag = E.ag, cliNovo = E.ag ? E.cliNovo : null; E = novo(); E.cli = cli; E.placa = placa; E.ag = ag; if (cliNovo) E.cliNovo = cliNovo; if (ag && ag.tipo === 'buscar') E.obs = DB.LEVA; }
     ir(o[i - 1]);
   };
 
@@ -367,6 +366,7 @@
         E.ag = ag; E.cli = DB.cliente(ag.cliente_id);
         if (!E.cli) E.cliNovo = { nome: ag.nome || '', telefone: ag.telefone || '' };
         if (U.placaOk(ag.placa)) E.placa = ag.placa;
+        if (ag.tipo === 'buscar') E.obs = DB.LEVA;   // foi buscar o carro: volta como leva e traz
       }
       el.addEventListener('click', toque);
       // teclado do computador também digita a placa

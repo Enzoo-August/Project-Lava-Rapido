@@ -136,9 +136,12 @@
   const MSGS = [
     ['entrada', 'Quando o carro chega', '{nome} {carro} {placa} {previsao} {link} {lava}'],
     ['pronto', 'Quando o carro fica pronto', '{nome} {carro} {placa} {valor} {lava}'],
+    ['prontoLeva', 'Quando o carro fica pronto (leva e traz)', '{nome} {carro} {placa} {valor} {lava}'],
+    ['fiado', 'Cobrança do fiado', '{nome} {lista} {valor} {lava}'],
     ['avaliacao', 'Pedido de avaliação (cliente novo)', '{nome} {google} {lava}'],
     ['sumido', 'Para chamar de volta o cliente sumido', '{nome} {carro} {lava}'],
-    ['lembrete', 'Lembrete de horário marcado (agenda)', '{nome} {quando} {carro} {lava}']
+    ['lembrete', 'Lembrete de horário marcado (agenda)', '{nome} {quando} {carro} {lava}'],
+    ['lembreteBusca', 'Lembrete quando você vai buscar o carro (leva e traz)', '{nome} {quando} {carro} {lava}']
   ];
   function mensagens(el) {
     const m = DB.cfg().msg;
@@ -213,6 +216,8 @@
       <label class="campo"><span>Formas de pagamento (separe por vírgula)</span><input name="pagamentos" value="${U.esc(c.pagamentos.join(', '))}"></label>
       <label class="chave"><input type="checkbox" name="usarLavando" ${c.usarLavando ? 'checked' : ''}><span>Usar a etapa “Lavando”<small>Desligado, o carro vai direto de “na fila” para “pronto”.</small></span></label>
       <label class="chave"><input type="checkbox" name="funcionarioMudaValor" ${c.funcionarioMudaValor ? 'checked' : ''}><span>Funcionário pode ajustar o valor<small>Desligado, vale sempre o preço da tabela.</small></span></label>
+      <label class="chave"><input type="checkbox" name="perguntarEntrega" ${c.perguntarEntrega !== false ? 'checked' : ''}><span>Na chegada, perguntar como o carro volta<small>Leva e traz, cliente espera ou hora para buscar. Desligado, a chegada termina no serviço.</small></span></label>
+      <label class="chave"><input type="checkbox" name="fiado" ${c.fiado !== false ? 'checked' : ''}><span>Aceitar fiado<small>Na entrega aparece “Fiado (paga depois)”. O que ficou para receber fica em Mais → Fiado.</small></span></label>
       <label class="campo"><span>Cliente “sumido” depois de quantos dias sem vir</span><input name="sumidoDias" inputmode="numeric" value="${c.sumidoDias}"></label>
       ${pe()}
     </form>
@@ -221,7 +226,7 @@
       e.preventDefault();
       const f = U.campos(e.target), pags = f.pagamentos.split(',').map((x) => x.trim()).filter(Boolean);
       if (!pags.length) return U.toast('Informe pelo menos uma forma de pagamento.', 'bad');
-      DB.salvarConfig({ pagamentos: pags, usarLavando: f.usarLavando, funcionarioMudaValor: f.funcionarioMudaValor, sumidoDias: Math.max(7, Math.round(U.num(f.sumidoDias)) || 45) });
+      DB.salvarConfig({ pagamentos: pags.filter((x) => U.norm(x) !== 'fiado'), usarLavando: f.usarLavando, funcionarioMudaValor: f.funcionarioMudaValor, perguntarEntrega: f.perguntarEntrega, fiado: f.fiado, sumidoDias: Math.max(7, Math.round(U.num(f.sumidoDias)) || 45) });
       salvo();
     };
     const d = el.querySelector('#oDemo'); if (d) d.onclick = async () => { if (await U.confirmar('Recomeçar a demonstração?', 'Volta tudo para os dados de exemplo.', 'Recomeçar')) { Demo.recomecar(); App.aplicarMarca(); salvo(); } };

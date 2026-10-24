@@ -1,10 +1,33 @@
 /* =========================================================
    Agenda — horários marcados (para quem trabalha com hora marcada).
-   Quando o cliente chega, "Chegou" abre a entrada já preenchida:
-   cliente, carro e serviço combinados. Lembrete pelo WhatsApp.
+   Quando o cliente chega (ou o carro é buscado, no leva e traz),
+   "Chegou"/"Busquei" abre a entrada já preenchida. Lembrete pelo
+   WhatsApp, aviso no app no tempo escolhido e opção de pôr no
+   calendário do celular (que avisa mesmo com o app fechado).
    ========================================================= */
 (function () {
   const horaTxt = (g) => U.hora(g.quando);
+  const AVISOS = [[0, 'Na hora'], [5, '5 min antes'], [10, '10 min antes'], [15, '15 min antes'], [30, '30 min antes'], [60, '1 hora antes']];
+  const avisoTxt = (g) => { const m = g.avisar_min == null ? 30 : Number(g.avisar_min); return m ? `${(AVISOS.find((x) => x[0] === m) || [m, m + ' min antes'])[1]} e na hora` : 'na hora'; };
+  const mapa = (end) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(end);
+  // calendário do celular: o próprio celular avisa, mesmo com o app fechado
+  const paraCalendario = (g) => {
+    const ini = new Date(g.quando), fim = new Date(ini.getTime() + 60 * 60000), z = (d) => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    const titulo = g.tipo === 'buscar' ? `Buscar o carro de ${g.nome}` : `${g.nome} · ${g.servico || 'horário marcado'}`;
+    const desc = [g.servico, g.veiculo, U.placaOk(g.placa) ? U.placaFmt(g.placa) : '', g.telefone ? 'WhatsApp ' + U.telFmt(g.telefone) : '', g.obs].filter(Boolean).join(' · ');
+    const antes = g.avisar_min == null ? 30 : Number(g.avisar_min);
+    if (/iphone|ipad|ipod|macintosh/i.test(navigator.userAgent)) {
+      const esc = (t) => String(t || '').replace(/[\\;,]/g, (c) => '\\' + c).replace(/\n/g, '\\n');
+      const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Lava Rapido//Agenda//PT', 'BEGIN:VEVENT', `UID:${g.id}@lavarapido`, `DTSTAMP:${z(new Date())}`, `DTSTART:${z(ini)}`, `DTEND:${z(fim)}`, `SUMMARY:${esc(titulo)}`, `DESCRIPTION:${esc(desc)}`, g.endereco ? `LOCATION:${esc(g.endereco)}` : '',
+        'BEGIN:VALARM', `TRIGGER:-PT${antes}M`, 'ACTION:DISPLAY', `DESCRIPTION:${esc(titulo)}`, 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+      const arq = new File([ics], 'horario.ics', { type: 'text/calendar' }), url = URL.createObjectURL(arq), a = document.createElement('a');
+      a.href = url; a.download = arq.name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 8000);
+      U.toast('Abra o arquivo e toque em “Adicionar ao Calendário”.');
+    } else {
+      window.open(`https://calendar.google.com/calendar/render?action=TEMPLATE&text=${encodeURIComponent(titulo)}&dates=${z(ini)}/${z(fim)}&details=${encodeURIComponent(desc)}${g.endereco ? '&location=' + encodeURIComponent(g.endereco) : ''}`, '_blank', 'noopener');
+      U.toast('No Google Agenda, toque em “Salvar”. O aviso do celular vem da própria agenda.');
+    }
+  };
   const diaTitulo = (chave) => {
     const d = U.deDia(chave), dias = U.diasDesde(d);
     const nome = dias === 0 ? 'Hoje' : dias === -1 ? 'Amanhã' : U.capitalizar(U.SEMANA_LONGA[d.getDay()]);
@@ -25,13 +48,13 @@
         return `<article class="agend${atrasado ? ' atrasado' : ''}" data-g="${g.id}">
           <button type="button" class="agend-info" data-acao="ver">
             <span class="agend-hora">${horaTxt(g)}</span>
-            <span class="agend-txt"><b>${U.esc(g.nome)}</b>
+            <span class="agend-txt"><b>${g.tipo === 'buscar' ? `${U.icon('carro')} Buscar · ` : ''}${U.esc(g.nome)}</b>
               <small>${U.esc(g.servico || 'serviço a combinar')}${g.valor ? ' · ' + U.brl0(g.valor) : ''}</small>
-              <small>${U.esc(g.veiculo || '')}${U.placaOk(g.placa) ? ' · ' + U.esc(U.placaFmt(g.placa)) : ''}${atrasado ? ' · <b class="atraso">ainda não chegou</b>' : ''}</small></span>
+              <small>${U.esc(g.veiculo || '')}${U.placaOk(g.placa) ? ' · ' + U.esc(U.placaFmt(g.placa)) : ''}${g.tipo === 'buscar' && g.endereco ? ' · ' + U.esc(g.endereco) : ''}${atrasado ? ` · <b class="atraso">${g.tipo === 'buscar' ? 'passou da hora' : 'ainda não chegou'}</b>` : ''}</small></span>
           </button>
           ${bloqueado ? '' : `<div class="agend-acoes">
             ${U.telOk(g.telefone) ? `<button type="button" class="btn btn-p" data-acao="lembrar">${U.icon('zap')}<span>Lembrar</span></button>` : ''}
-            <button type="button" class="btn btn-marca btn-p" data-acao="chegou">${U.icon('check')}<span>Chegou</span></button>
+            <button type="button" class="btn btn-marca btn-p" data-acao="chegou">${U.icon('check')}<span>${g.tipo === 'buscar' ? 'Busquei' : 'Chegou'}</span></button>
           </div>`}
         </article>`;
       };
@@ -58,19 +81,22 @@
       const acao = await U.modal({
         titulo: U.capitalizar(DB.quandoTxt(g.quando)),
         html: `<div class="pares">${linha('Cliente', U.esc(g.nome))}${linha('WhatsApp', U.esc(U.telFmt(g.telefone)))}${linha('Carro', U.esc(g.veiculo || ''))}${linha('Placa', U.placaOk(g.placa) ? U.esc(U.placaFmt(g.placa)) : '')}
-          ${linha('Serviço', U.esc(g.servico || ''))}${linha('Valor combinado', g.valor ? U.brl(g.valor) : '')}${linha('Observação', U.esc(g.obs || ''))}${linha('Marcado por', U.esc(g.criado_por || ''))}</div>
+          ${linha('Tipo', g.tipo === 'buscar' ? 'Vou buscar o carro (leva e traz)' : 'Cliente traz o carro')}${linha('Onde buscar', g.tipo === 'buscar' ? U.esc(g.endereco || '') : '')}
+          ${linha('Serviço', U.esc(g.servico || ''))}${linha('Valor combinado', g.valor ? U.brl(g.valor) : '')}${linha('Observação', U.esc(g.obs || ''))}${linha('Aviso no app', avisoTxt(g))}${linha('Marcado por', U.esc(g.criado_por || ''))}</div>
           ${bloqueado ? '' : `<div class="lista-menu">
-            <button type="button" data-v="chegou">${U.icon('check')}<span>Chegou: registrar a entrada</span></button>
+            <button type="button" data-v="chegou">${U.icon('check')}<span>${g.tipo === 'buscar' ? 'Busquei o carro: registrar a entrada' : 'Chegou: registrar a entrada'}</span></button>
+            ${g.tipo === 'buscar' && g.endereco ? `<a href="${mapa(g.endereco)}" target="_blank" rel="noopener" data-fechar>${U.icon('bandeira')}<span>Abrir o endereço no mapa</span></a>` : ''}
+            <button type="button" data-v="calendario">${U.icon('calendario')}<span>Pôr no calendário do celular (avisa mesmo com o app fechado)</span></button>
             ${U.telOk(g.telefone) ? `<button type="button" data-v="lembrar">${U.icon('zap')}<span>Mandar lembrete no WhatsApp</span></button><a href="tel:+55${U.telDig(g.telefone)}" data-fechar>${U.icon('fone')}<span>Ligar</span></a>` : ''}
             <button type="button" data-v="editar">${U.icon('editar')}<span>Mudar dia, hora ou serviço</span></button>
-            <button type="button" data-v="faltou">${U.icon('relogio')}<span>Não veio</span></button>
+            <button type="button" data-v="faltou">${U.icon('relogio')}<span>${g.tipo === 'buscar' ? 'Não deu para buscar' : 'Não veio'}</span></button>
             <button type="button" class="perigo" data-v="cancelar">${U.icon('x')}<span>Cancelar o horário</span></button>
           </div>`}`,
-        aoAbrir: (el, fechar) => { const m = el.querySelector('.lista-menu'); if (m) m.addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b) return; if (b.dataset.v === 'lembrar') U.zap(g.telefone, DB.msgAgenda(g)); fechar(b.dataset.v); }); }
+        aoAbrir: (el, fechar) => { const m = el.querySelector('.lista-menu'); if (m) m.addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b) return; if (b.dataset.v === 'lembrar') U.zap(g.telefone, DB.msgAgenda(g)); if (b.dataset.v === 'calendario') return paraCalendario(g); fechar(b.dataset.v); }); }
       });
       if (acao === 'chegou') return App.ir('entrada/a/' + g.id);
       if (acao === 'editar' && await Telas.agenda.form(g)) U.toast('Horário alterado');
-      if (acao === 'faltou') { DB.salvarAgendamento(g, { status: 'faltou' }); U.toast('Marcado como “não veio”'); }
+      if (acao === 'faltou') { DB.salvarAgendamento(g, { status: 'faltou' }); U.toast(g.tipo === 'buscar' ? 'Marcado como “não deu para buscar”' : 'Marcado como “não veio”'); }
       if (acao === 'cancelar' && await U.confirmar('Cancelar este horário?', `${g.nome}, ${DB.quandoTxt(g.quando)}.`, 'Cancelar horário', 'btn-perigo')) { DB.salvarAgendamento(g, { status: 'cancelado' }); U.toast('Horário cancelado'); }
       App.render();
     },
@@ -82,17 +108,23 @@
       const servs = DB.servicos(), outro = g && g.servico && !servs.some((s) => s.nome === g.servico);
       return U.modal({
         titulo: g ? 'Mudar horário' : 'Marcar horário', largo: true,
-        html: `<label class="campo"><span>Nome do cliente</span><input name="nome" value="${U.esc(g ? g.nome : '')}" autocapitalize="words" autocomplete="off"></label>
+        html: `<span class="rot">O que é</span>
+          <div class="opcoes" id="gTipo"><button type="button" data-tipo="traz" class="${!g || g.tipo !== 'buscar' ? 'ativo' : ''}">Cliente traz o carro</button><button type="button" data-tipo="buscar" class="${g && g.tipo === 'buscar' ? 'ativo' : ''}">Vou buscar o carro (leva e traz)</button></div>
+          <label class="campo"><span>Nome do cliente</span><input name="nome" value="${U.esc(g ? g.nome : '')}" autocapitalize="words" autocomplete="off"></label>
           <div id="gSug" class="achados"></div>
           <label class="campo"><span>WhatsApp (com DDD)</span><input name="telefone" inputmode="tel" value="${U.esc(g ? U.telFmt(g.telefone) : '')}" placeholder="(11) 99999-9999"></label>
           <div class="lado"><label class="campo"><span>Dia</span><input name="dia" type="date" value="${U.dia(d)}"></label><label class="campo"><span>Hora</span><input name="hora" type="time" value="${U.hora(d)}"></label></div>
           <div class="chips" id="gDias"><button type="button" class="chip" data-d="0">Hoje</button><button type="button" class="chip" data-d="1">Amanhã</button><button type="button" class="chip" data-d="2">Depois de amanhã</button></div>
+          <label class="campo" id="gEnd" ${g && g.tipo === 'buscar' ? '' : 'hidden'}><span>Onde buscar (endereço)</span><input name="endereco" value="${U.esc(g ? g.endereco || '' : '')}" placeholder="Rua, número, bairro" autocapitalize="words"></label>
           <label class="campo"><span>Serviço</span><select name="servico"><option value="">A combinar</option>${servs.map((s) => `<option${g && g.servico === s.nome ? ' selected' : ''}>${U.esc(s.nome)}</option>`).join('')}<option value="__outro"${outro ? ' selected' : ''}>Outro (escrever)</option></select></label>
           <label class="campo" id="gOutro" ${outro ? '' : 'hidden'}><span>Qual serviço?</span><input name="servicoLivre" value="${U.esc(outro ? g.servico : '')}" autocapitalize="sentences"></label>
           <div class="lado"><label class="campo"><span>Carro (modelo e cor)</span><input name="veiculo" value="${U.esc(g ? g.veiculo || '' : '')}" autocapitalize="words" placeholder="Ex.: Corolla preto"></label>
             <label class="campo"><span>Placa (se souber)</span><input name="placa" value="${U.esc(g && U.placaOk(g.placa) ? g.placa : '')}" autocapitalize="characters" maxlength="8" placeholder="ABC1D23"></label></div>
           <label class="campo"><span>Valor combinado (opcional)</span><input name="valor" inputmode="decimal" value="${g && g.valor ? String(g.valor).replace('.', ',') : ''}" placeholder="0,00"></label>
-          <label class="campo"><span>Observação</span><input name="obs" value="${U.esc(g ? g.obs || '' : '')}" placeholder="Ex.: trazer o carro sem objetos"></label>`,
+          <label class="campo"><span>Observação</span><input name="obs" value="${U.esc(g ? g.obs || '' : '')}" placeholder="Ex.: trazer o carro sem objetos"></label>
+          <span class="rot">Avisar no app (com som)</span>
+          <div class="opcoes" id="gAviso">${AVISOS.map(([m, t]) => `<button type="button" data-av="${m}" class="${(g ? (g.avisar_min == null ? 30 : Number(g.avisar_min)) : 10) === m ? 'ativo' : ''}">${t}</button>`).join('')}</div>
+          <p class="mudo pequeno">O app também avisa na hora marcada. Para o celular avisar mesmo com o app fechado, depois de marcar toque no horário → <b>Pôr no calendário do celular</b>.</p>`,
         aoAbrir: (el) => {
           const f = (n) => el.querySelector(`[name=${n}]`), sug = el.querySelector('#gSug');
           // cliente que já existe: toca no nome e preenche telefone, carro e placa
@@ -111,6 +143,8 @@
           };
           f('telefone').oninput = () => { f('telefone').value = U.telFmt(f('telefone').value); };
           f('placa').oninput = () => { f('placa').value = U.placaLimpa(f('placa').value); };
+          el.querySelector('#gTipo').onclick = (e) => { const b = e.target.closest('[data-tipo]'); if (!b) return; el.querySelectorAll('#gTipo button').forEach((x) => x.classList.toggle('ativo', x === b)); el.querySelector('#gEnd').hidden = b.dataset.tipo !== 'buscar'; };
+          el.querySelector('#gAviso').onclick = (e) => { const b = e.target.closest('[data-av]'); if (!b) return; el.querySelectorAll('#gAviso button').forEach((x) => x.classList.toggle('ativo', x === b)); };
           f('servico').onchange = () => { el.querySelector('#gOutro').hidden = f('servico').value !== '__outro'; };
           el.querySelector('#gDias').onclick = (e) => { const b = e.target.closest('[data-d]'); if (b) f('dia').value = U.dia(U.somaDias(new Date(), Number(b.dataset.d))); };
           if (!g) f('nome').focus();
@@ -129,7 +163,9 @@
           DB.salvarAgendamento(g, {
             cliente_id: clienteId, nome: x.nome, telefone: x.telefone, quando: q.toISOString(),
             servico: x.servico === '__outro' ? x.servicoLivre : x.servico, valor: U.num(x.valor),
-            veiculo: x.veiculo, placa: x.placa, obs: x.obs
+            veiculo: x.veiculo, placa: x.placa, obs: x.obs,
+            tipo: el.querySelector('#gTipo .ativo').dataset.tipo, endereco: el.querySelector('#gTipo .ativo').dataset.tipo === 'buscar' ? x.endereco : '',
+            avisar_min: Number(el.querySelector('#gAviso .ativo').dataset.av)
           });
           return true;
         } }]

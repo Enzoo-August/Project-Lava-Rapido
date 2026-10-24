@@ -522,3 +522,7 @@ body *:not(input):not(textarea):not(select) { caret-color: transparent; }
 .ins-duvida summary .ic { color: var(--marca-tinta); }
 .ins-duvida.remover summary .ic { color: var(--mudo); }
 .ins-duvida ul { margin: 0 0 12px 18px; display: grid; gap: 8px; color: var(--tinta2); font-size: 15px; }
+/* ---------- fiado ---------- */
+.pag-fiado { margin-top: 10px; border-style: dashed; }
+.fx-item span { flex: 1; } .fx-item small { font-weight: 700; color: var(--tinta); }
+#fxLista { display: grid; gap: 8px; }

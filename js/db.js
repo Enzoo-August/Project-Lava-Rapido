@@ -19,12 +19,17 @@
     lavadores: [],              // nomes de quem lava (para saber quem lavou cada carro)
     sumidoDias: 45,             // depois de quantos dias sem vir o cliente é "sumido"
     funcionarioMudaValor: true,
+    perguntarEntrega: true,     // na chegada, perguntar quando o cliente vem buscar (leva e traz, espera, hora)
+    fiado: true,                // na entrega, aceitar "Fiado" (o cliente paga depois)
     msg: {
       entrada: 'Olá, {nome}! Recebemos seu {carro} ({placa}). Previsão: {previsao}. Acompanhe por aqui: {link}\n{lava}',
       pronto: 'Olá, {nome}! Seu {carro} ({placa}) está pronto ✅ Pode vir buscar quando quiser. Total: {valor}.\n{lava}',
+      prontoLeva: 'Olá, {nome}! Seu {carro} ({placa}) está pronto ✅ Já vamos levar até você. Total: {valor}.\n{lava}',
+      fiado: 'Olá, {nome}! Segue o resumo do que ficou para pagar depois:\n{lista}\nTotal: {valor}.\nQualquer dúvida, é só chamar.\n{lava}',
       avaliacao: '{nome}, obrigado pela preferência! Sua opinião ajuda muito a gente. Pode avaliar em 1 minutinho? {google}\n{lava}',
       sumido: 'Oi, {nome}! Faz um tempo que não vemos seu {carro} por aqui. Que tal deixar ele brilhando de novo? Estamos esperando você!\n{lava}',
-      lembrete: 'Olá, {nome}! Passando para lembrar do seu horário: {quando}. Se precisar remarcar, é só avisar por aqui.\n{lava}'
+      lembrete: 'Olá, {nome}! Passando para lembrar do seu horário: {quando}. Se precisar remarcar, é só avisar por aqui.\n{lava}',
+      lembreteBusca: 'Olá, {nome}! Passando para lembrar: vamos buscar seu {carro} {quando}. Se precisar mudar, é só avisar por aqui.\n{lava}'
     }
   };
   DB.PADRAO = PADRAO;
@@ -179,10 +184,11 @@
         if (antes === 'cancelado') { c.visitas = (c.visitas || 0) + 1; c.pontos_usados = (c.pontos_usados || 0) + a.pontos_usados; }
       }
       a.status = novo;
+      if (antes === 'entregue') { a.fiado_aberto = false; a.fiado_pago_em = null; a.fiado_pagamento = null; }   // desfez a entrega: fiado some junto
       if (novo === 'aguardando') { a.inicio_em = null; a.pronto_em = null; a.entregue_em = null; a.cancelado_em = null; a.pagamento = null; a.avisado_em = null; }
       if (novo === 'lavando') { a.inicio_em = a.inicio_em || agora; a.pronto_em = null; a.entregue_em = null; a.pagamento = null; a.avisado_em = null; }
       if (novo === 'pronto') { a.inicio_em = a.inicio_em || a.entrada_em; a.pronto_em = a.pronto_em && antes === 'entregue' ? a.pronto_em : agora; a.entregue_em = null; a.pagamento = null; }
-      if (novo === 'entregue') { a.inicio_em = a.inicio_em || a.entrada_em; a.pronto_em = a.pronto_em || agora; a.entregue_em = agora; }
+      if (novo === 'entregue') { a.inicio_em = a.inicio_em || a.entrada_em; a.pronto_em = a.pronto_em || agora; a.entregue_em = agora; a.fiado_aberto = a.pagamento === 'Fiado'; }
       if (novo === 'cancelado') a.cancelado_em = agora;
       if (c && [antes, novo].some((s) => s === 'entregue' || s === 'cancelado')) DB.gravar('clientes', c);
     }
@@ -209,6 +215,17 @@
     Object.assign(d, dados);
     return DB.gravar('despesas', d);
   };
+  // ---------------- fiado (o cliente paga depois) ----------------
+  DB.fiados = () => Store.s.atendimentos.filter((a) => a.status === 'entregue' && a.fiado_aberto);
+  DB.fiadoPorCliente = () => {
+    const m = new Map();
+    for (const a of DB.fiados()) { const k = a.cliente_id || 'sem'; if (!m.has(k)) m.set(k, { id: k, cliente: DB.cliente(a.cliente_id), itens: [], total: 0 }); const x = m.get(k); x.itens.push(a); x.total += Number(a.total) || 0; }
+    for (const x of m.values()) x.itens.sort((a, b) => (a.entregue_em < b.entregue_em ? -1 : 1));
+    return Array.from(m.values()).sort((a, b) => b.total - a.total);
+  };
+  DB.receberFiado = (lista, forma) => { const agora = agoraIso(); for (const a of lista) { a.fiado_aberto = false; a.fiado_pago_em = agora; a.fiado_pagamento = forma; DB.gravar('atendimentos', a); } };
+  DB.fiadosPagos = (desde) => Store.s.atendimentos.filter((a) => a.fiado_pago_em && a.fiado_pago_em >= desde).sort((a, b) => (a.fiado_pago_em < b.fiado_pago_em ? 1 : -1));
+
   // ---------------- produtos (estoque) e pedidos de compra ----------------
   DB.produtos = () => Store.s.produtos.filter((p) => !p.excluido).sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
   DB.acabando = (p) => Number(p.estoque) <= Number(p.minimo || 0);
@@ -250,14 +267,14 @@
   DB.agenda = () => Store.s.agendamentos.filter((g) => g.status === 'marcado').sort((a, b) => (a.quando < b.quando ? -1 : 1));
   DB.agendaDoDia = (dia) => { dia = dia || U.dia(); return DB.agenda().filter((g) => U.dia(g.quando) === dia); };
   DB.salvarAgendamento = (g, dados) => {
-    if (!g) g = { id: U.uuid(), lava_id: lavaId(), cliente_id: null, nome: '', telefone: '', placa: '', veiculo: '', servico: '', valor: 0, quando: null, obs: '', status: 'marcado', atendimento_id: null, criado_por: App.user.nome, criado_em: agoraIso() };
+    if (!g) g = { id: U.uuid(), lava_id: lavaId(), cliente_id: null, nome: '', telefone: '', placa: '', veiculo: '', servico: '', valor: 0, quando: null, obs: '', tipo: 'traz', endereco: '', avisar_min: 10, status: 'marcado', atendimento_id: null, criado_por: App.user.nome, criado_em: agoraIso() };
     Object.assign(g, dados);
     if (dados.nome !== undefined) g.nome = U.capitalizar(g.nome);
     if (dados.telefone !== undefined) g.telefone = U.telDig(g.telefone);
     return DB.gravar('agendamentos', g);
   };
   DB.quandoTxt = (d) => { const dias = U.diasDesde(d); return (dias === 0 ? 'hoje' : dias === -1 ? 'amanhã' : `${U.SEMANA_LONGA[new Date(d).getDay()]}, ${U.dataCurta(d)}`) + ' às ' + U.hora(d); };
-  DB.msgAgenda = (g) => String(DB.cfg().msg.lembrete || '').replace(/\{(\w+)\}/g, (m, k) => ({ nome: U.primeiroNome(g.nome), lava: DB.lava().nome, quando: DB.quandoTxt(g.quando), carro: g.veiculo || 'carro' }[k] ?? m));
+  DB.msgAgenda = (g) => String(DB.cfg().msg[g.tipo === 'buscar' ? 'lembreteBusca' : 'lembrete'] || '').replace(/\{(\w+)\}/g, (m, k) => ({ nome: U.primeiroNome(g.nome), lava: DB.lava().nome, quando: DB.quandoTxt(g.quando), carro: g.veiculo || 'carro' }[k] ?? m));
 
   // ---------------- períodos (painel do dono) ----------------
   // atendimentos com entrada entre "de" (inclusive) e "ate" (exclusive)
@@ -277,15 +294,19 @@
 
   // ---------------- mensagens do WhatsApp ----------------
   DB.linkAcompanhar = (a) => new URL('c/?t=' + a.token + (Store.modo === 'demo' ? '&demo=1' : ''), location.origin + '/').href;
-  DB.msg = (tipo, a, c) => {
+  DB.LEVA = 'Leva e traz';
+  DB.ehLeva = (a) => !!(a && a.obs && a.obs.split(' · ').includes(DB.LEVA));
+  DB.msg = (tipo, a, c, extra) => {
     c = c || DB.cliente(a && a.cliente_id) || {};
+    if (tipo === 'pronto' && DB.ehLeva(a)) tipo = 'prontoLeva';
     const v = a ? null : DB.veiculosDe(c.id)[0];
     const vars = {
       nome: U.primeiroNome(c.nome), lava: DB.lava().nome, google: DB.marca().google || '',
       carro: a ? a.veiculo || 'carro' : v ? DB.nomeVeiculo(v) : 'carro',
       placa: a ? U.placaFmt(a.placa) : '', valor: a ? U.brl(a.total) : '',
       previsao: a && a.previsao ? (U.dia(a.previsao) === U.dia() ? 'hoje às ' : U.dataCurta(a.previsao) + ' às ') + U.hora(a.previsao) : 'avisamos quando ficar pronto',
-      link: a ? DB.linkAcompanhar(a) : ''
+      link: a ? DB.linkAcompanhar(a) : '',
+      ...(extra || {})
     };
     return String(DB.cfg().msg[tipo] || '').replace(/\{(\w+)\}/g, (m, k) => (vars[k] !== undefined ? vars[k] : m)).replace(/ \(\)/g, '').replace(/^\s+$/gm, '').trim();
   };

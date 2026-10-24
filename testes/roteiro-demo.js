@@ -22,6 +22,7 @@ window.testeTudo = async () => {
   const campo = (el, nome, valor) => { const i = q(`[name=${nome}]`, el); i.value = valor; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); };
   const zap = []; U.zap = (t, m) => zap.push([t, m]);
   const dinheiro = (n) => U.brl(n);
+  const E_obs = () => q('.pe-total') ? q('.pe-total').innerText : tela();
   const carrinhoVazio = () => { const r = Store.pref('pedido.' + (DB.lava().id || 'demo')); return !(r && (Array.isArray(r) ? r : r.itens || []).length); };
 
   Store.pref('visto.funcionario', true); Store.pref('visto.dono', true);
@@ -136,7 +137,7 @@ window.testeTudo = async () => {
     await clic(`[data-serv="${sv[3].id}"]`); ok('ao marcar, pergunta o valor', !!modal() && /Quanto vai custar/.test(modal().innerText));
     campo(modal(), 'valor', '350'); await clic('.modal-acoes .btn-marca'); await clic(`[data-serv="${sv[0].id}"]`); await clic('[data-acao=confirmar]');
     ok('valor combinado gravado no serviço', ultimo().servicos.length === 1 && ultimo().servicos[0].valor === 350 && ultimo().total === 350, JSON.stringify(ultimo().servicos));
-    ok('serviço de 8 horas já sugere o dia seguinte', U.dia(ultimo().previsao) === U.dia(U.somaDias(new Date(), 1)));
+    ok('sem hora escolhida, a chegada não inventa horário', ultimo().previsao == null);
     DB.salvarServico(sv[3], { precos: { moto: 80, p: 180, m: 220, g: 260, x: 300 }, minutos: 180 });
   });
 
@@ -165,7 +166,7 @@ window.testeTudo = async () => {
     await fecharModais(); await ir('patio/pronto');
     // entregar
     const gasto = c.gasto, entreguesAntes = DB.entreguesHoje().length;
-    await clic(q('[data-acao=entregar]', card())); ok('entregar: mostra o total e as formas de pagamento', modal().innerText.includes(dinheiro(a.total)) && qq('[data-pag]').length === DB.cfg().pagamentos.length);
+    await clic(q('[data-acao=entregar]', card())); ok('entregar: mostra o total, as formas de pagamento e o fiado', modal().innerText.includes(dinheiro(a.total)) && qq('.grade-pag [data-pag]').length === DB.cfg().pagamentos.length && !!q('.modal [data-pag="Fiado"]'));
     await clic('[data-pag="Dinheiro"]'); await esp(250);
     ok('entregue: pagamento, hora e gasto do cliente', a.status === 'entregue' && a.pagamento === 'Dinheiro' && !!a.entregue_em && c.gasto === gasto + a.total && DB.entreguesHoje().length === entreguesAntes + 1);
     ok('cliente novo: oferece pedir avaliação no Google', !!modal() && /avaliação/.test(modal().innerText));
@@ -394,8 +395,77 @@ window.testeTudo = async () => {
     await entrar('dono');
   });
 
+  await passo('14e leva e traz, fiado, agenda de buscar e backup', async () => {
+    // chegada: nada marcado sozinho; leva e traz; hora certinha opcional
+    await entrar('funcionario'); await ir('entrada'); const pl = 'LVT1A23'; await digitar(pl); await clic('[data-acao=novo]'); await modeloCorCliente('onix', 'Prata', 'Parceiro Teste', '11966665555');
+    ok('chegada: nenhuma hora vem marcada sozinha', !qq('.chips .chip.ativo').length && /Sem hora combinada/.test(q('.pe-total').innerText));
+    await clic('[data-acao=leva]'); ok('leva e traz: marca e muda a pergunta da hora', !!q('[data-acao=leva].ativo') && /Que horas entregar/.test(tela()) && /Leva e traz/.test(q('.pe-total').innerText));
+    await clic('[data-acao=espera]'); ok('“vai esperar” desmarca o leva e traz', !!q('[data-acao=espera].ativo') && !q('[data-acao=leva].ativo'));
+    await clic('[data-acao=leva]'); await clic('[data-prev="60"]'); ok('hora: tocar escolhe', !!q('[data-prev="60"].ativo'));
+    await clic('[data-prev="60"]'); ok('hora: tocar de novo tira', !q('[data-prev="60"].ativo'));
+    await clic('[data-acao=confirmar]'); const lv = ultimo();
+    ok('leva e traz gravado, sem hora', DB.ehLeva(lv) && !lv.previsao && /Leva e traz/.test(tela()));
+    ok('mensagem de pronto do leva e traz: “vamos levar”', /levar até você/.test(DB.msg('pronto', lv)) && !/Pode vir buscar/.test(DB.msg('pronto', lv)));
+    // entrega no fiado
+    DB.status(lv, 'pronto'); await ir('patio/pronto'); const cardL = () => q(`.atend[data-id="${lv.id}"]`) || qq('.atend').find((x) => x.innerText.includes(U.placaFmt(pl)));
+    ok('pátio: cartão mostra “leva e traz”', /leva e traz/i.test(cardL().innerText));
+    await clic(q('[data-acao=entregar]', cardL())); await clic('.modal [data-pag="Fiado"]'); await esp(300); await fecharModais();
+    ok('entregue no fiado: fica em aberto', lv.status === 'entregue' && lv.pagamento === 'Fiado' && lv.fiado_aberto === true);
+    await entrar('dono'); await ir('inicio');
+    ok('início: fiado não entra no “Recebido hoje” e aparece a faixa', /Ficou no fiado hoje/.test(tela()) && !!q('a.faixa-agenda[href="#/fiado"]'));
+    await ir('mais'); await clic('a[href="#/fiado"]'); await esp(200);
+    const gi = qq('[data-gr]').findIndex((x) => x.innerText.includes('Parceiro Teste'));
+    ok('Fiado: aparece quem deve com o valor', App.rota === 'fiado' && gi >= 0 && qq('[data-gr]')[gi].innerText.includes(dinheiro(lv.total)));
+    await clic(qq('[data-gr]')[gi]); const z0 = zap.length;
+    await clic(qq('.modal-acoes button').find((x) => /Cobrar/.test(x.innerText)));
+    ok('cobrar: WhatsApp com a lista e o total', zap.length === z0 + 1 && zap[zap.length - 1][1].includes(dinheiro(lv.total)) && /pagar depois/.test(zap[zap.length - 1][1]));
+    await clic('#fxPag [data-pag="Pix"]'); await clic(qq('.modal-acoes button').find((x) => /Recebi/.test(x.innerText))); await esp(300);
+    ok('recebi: sai do fiado e fica em “recebidos” com a forma', !lv.fiado_aberto && lv.fiado_pagamento === 'Pix' && !!lv.fiado_pago_em && /Recebidos nos últimos 30 dias/.test(tela()));
+    await ir('inicio'); ok('início: fiado recebido hoje entra no caixa', /fiado recebido hoje/.test(tela()));
+    const dv = DB.fiados().length; DB.status(Store.s.atendimentos.find((x) => x.fiado_aberto), 'pronto'); ok('desfazer a entrega tira do fiado', DB.fiados().length === dv - 1);
+    // opções: desligar a pergunta da volta e o fiado
+    DB.salvarConfig({ perguntarEntrega: false, fiado: false });
+    await entrar('funcionario'); await ir('entrada'); await digitar('LVT2B34'); await clic('[data-acao=novo]'); await modeloCorCliente('gol', 'Branco', 'Sem Pergunta', '11955554444');
+    ok('opção desligada: a chegada não pergunta como o carro volta', !q('[data-acao=leva]') && !/Que horas/.test(tela()));
+    await clic('[data-acao=confirmar]'); const sp = ultimo(); DB.status(sp, 'pronto'); await ir('patio/pronto');
+    await clic(q('[data-acao=entregar]', q(`.atend[data-id="${sp.id}"]`))); ok('fiado desligado: não aparece na entrega', !q('.modal [data-pag="Fiado"]')); await fecharModais();
+    DB.salvarConfig({ perguntarEntrega: true, fiado: true }); await entrar('dono');
+    // agenda: vou buscar, endereço e aviso 5 min antes
+    await ir('agenda'); await clic('#gNovo'); await clic('#gTipo [data-tipo="buscar"]');
+    ok('agenda: “vou buscar” mostra o endereço', !q('#gEnd').hidden);
+    campo(modal(), 'nome', 'Busca Teste'); const qd = new Date(Date.now() + 4 * 60000); q('[name=dia]', modal()).value = U.dia(qd); q('[name=hora]', modal()).value = U.hora(qd); campo(modal(), 'endereco', 'Rua Teste, 50');
+    await clic('#gAviso [data-av="5"]'); await clic('.modal-acoes .btn-marca'); await esp(300);
+    const gb = DB.agenda().find((x) => x.nome === 'Busca Teste');
+    ok('agenda: grava tipo, endereço e aviso', gb && gb.tipo === 'buscar' && gb.endereco === 'Rua Teste, 50' && gb.avisar_min === 5);
+    let xa = Avisos.lista().find((x) => x.g === gb);
+    ok('aviso 5 min antes: “buscar o carro”', !!xa && /^Daqui a \d+ min: buscar o carro de Busca Teste$/.test(xa.titulo) && /Rua Teste, 50/.test(xa.txt), xa && xa.titulo);
+    gb.quando = new Date(Date.now() + 8 * 60000).toISOString(); ok('fora do tempo escolhido não avisa', !Avisos.lista().some((x) => x.g === gb));
+    gb.quando = new Date(Date.now() - 60000).toISOString(); xa = Avisos.lista().find((x) => x.g === gb);
+    ok('na hora: “hora de buscar o carro”', !!xa && /hora de buscar o carro de Busca Teste/.test(xa.titulo));
+    ok('lembrete do “vou buscar”: mensagem própria', /vamos buscar seu/.test(DB.msgAgenda(gb)));
+    await ir('agenda'); const card = qq('.agend').find((x) => x.innerText.includes('Busca Teste'));
+    ok('cartão da agenda: “Buscar” e botão “Busquei”', /Buscar/.test(card.innerText) && /Busquei/.test(card.innerText));
+    await clic(q('[data-acao=ver]', card)); ok('janela do horário: calendário do celular e mapa', /calendário do celular/.test(modal().innerText) && !!q('.modal a[href*="google.com/maps"]')); await fecharModais();
+    const vb = Store.s.veiculos.find((v) => !DB.abertoDaPlaca(v.placa) && DB.cliente(v.cliente_id) && !U.semPlaca(v.placa)); gb.placa = vb.placa; gb.cliente_id = vb.cliente_id; await ir('agenda');
+    await clic(q('[data-acao=chegou]', qq('.agend').find((x) => x.innerText.includes('Busca Teste')))); await esp(300);
+    ok('busquei: a entrada já vem como leva e traz', App.rota === 'entrada' && /Leva e traz/.test(E_obs()), E_obs().slice(0, 120));
+    DB.salvarAgendamento(gb, { status: 'cancelado' });
+    // backup
+    await ir('inicio'); Store.pref('backup.ultimo.' + (DB.lava().id || 'demo'), null); DB.salvarConfig({ ultimo_backup: null });
+    ok('backup: aviso da semana no sininho', Avisos.lista().some((x) => x.tipo === 'backup'));
+    await ir('mais'); await clic('a[href="#/backup"]'); await esp(300);
+    ok('tela de backup: explica por que e como, e mostra o que vai', /Por que fazer backup/.test(tela()) && /Backups Lava Rápido/.test(tela()) && /\.csv/.test(tela()));
+    const grav = {}; const oPick = window.showDirectoryPicker;
+    window.showDirectoryPicker = async () => ({ name: 'Backups Lava Rápido', queryPermission: async () => 'granted', requestPermission: async () => 'granted', getFileHandle: async (n) => ({ createWritable: async () => ({ write: async (b) => { grav[n] = b; }, close: async () => {} }) }) });
+    q('#bkFazer').click(); for (let k = 0; k < 30 && Object.keys(grav).length < 2; k++) await esp(200); await esp(300); window.showDirectoryPicker = oPick;
+    const nomes = Object.keys(grav), js = nomes.find((n) => n.endsWith('.json')), cs = nomes.find((n) => n.endsWith('.csv'));
+    const dados = js ? JSON.parse(await grav[js].text()) : {};
+    ok('backup: grava o .json completo e a planilha .csv na pasta', !!js && !!cs && /^Backup .* \d{4}-\d\d-\d\d\.json$/.test(js) && dados.clientes.length === Store.s.clientes.length && dados.atendimentos.length > 0 && (await grav[cs].text()).split('\r\n').length === Store.s.clientes.length + 1, nomes.join(', '));
+    ok('backup feito: o aviso some', !Avisos.lista().some((x) => x.tipo === 'backup') && /Backup feito/.test((modal() || {}).innerText || '')); await fecharModais();
+  });
+
   await passo('14c avisos da agenda', async () => {
-    const g = DB.agenda()[0], orig = g.quando, tel = g.telefone; g.telefone = tel || '11977775555';
+    const g = DB.agenda().find((x) => x.tipo !== 'buscar'), orig = g.quando, tel = g.telefone; g.telefone = tel || '11977775555';
     g.quando = new Date(Date.now() + 25 * 60000).toISOString();
     let x = Avisos.lista().find((a) => a.g === g);
     ok('30 min antes: avisa que o cliente marcou e não chegou', !!x && x.tipo === 'agenda' && /ainda não chegou/.test(x.titulo) && /Faltam 2[45] min/.test(x.txt), x && x.titulo + ' | ' + x.txt);

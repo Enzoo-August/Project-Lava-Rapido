@@ -2,8 +2,9 @@
    Avisos — sininho no topo e aviso com som quando:
    - um carro passou do horário em que o cliente vem buscar
    - faltam 15 min para o cliente buscar e o carro não está pronto
-   - faltam 30 min para um horário da agenda e o cliente não chegou
-   - deu a hora marcada e o cliente não chegou
+   - horário da agenda chegando (no tempo escolhido: 5, 10, 15, 30 min
+     ou 1 hora antes) e de novo na hora marcada; no "vou buscar"
+     (leva e traz) lembra de ir buscar o carro
    Com permissão, também aparece como notificação do celular/computador
    (com o aplicativo aberto, mesmo em segundo plano). Com ele fechado
    seria preciso notificação "push" por servidor, que não existe ainda.
@@ -44,15 +45,20 @@
       if (a.status === 'pronto' || !a.previsao) continue;
       const t = new Date(a.previsao).getTime(), c = DB.cliente(a.cliente_id), quem = c ? U.primeiroNome(c.nome) : 'O cliente';
       const carro = `${a.veiculo || 'Carro'} (${U.placaFmt(a.placa)})`, etapa = a.status === 'lavando' ? 'lavando' : 'na fila';
-      if (t < agora) out.push({ id: `atraso:${a.id}:${a.previsao}`, tipo: 'atraso', a, titulo: `${carro} está atrasado`, txt: `${quem} vinha buscar ${U.dataHora(a.previsao).replace('hoje ', 'às ')}. Ainda está ${etapa}.` });
-      else if (t - agora <= 15 * 60000) out.push({ id: `quase:${a.id}:${a.previsao}`, tipo: 'quase', a, titulo: `Faltam ${Math.max(1, Math.round((t - agora) / 60000))} min para ${quem} buscar`, txt: `${carro} ainda está ${etapa}. ${quem} vem às ${U.hora(a.previsao)}.` });
+      const leva = DB.ehLeva(a), hora = U.dataHora(a.previsao).replace('hoje ', 'às ');
+      if (t < agora) out.push({ id: `atraso:${a.id}:${a.previsao}`, tipo: 'atraso', a, titulo: `${carro} está atrasado`, txt: leva ? `Era para entregar ${hora} (leva e traz). Ainda está ${etapa}.` : `${quem} vinha buscar ${hora}. Ainda está ${etapa}.` });
+      else if (t - agora <= 15 * 60000) { const min = Math.max(1, Math.round((t - agora) / 60000)); out.push({ id: `quase:${a.id}:${a.previsao}`, tipo: 'quase', a, titulo: leva ? `Faltam ${min} min para entregar o carro de ${quem}` : `Faltam ${min} min para ${quem} buscar`, txt: leva ? `${carro} ainda está ${etapa}. Entregar às ${U.hora(a.previsao)}.` : `${carro} ainda está ${etapa}. ${quem} vem às ${U.hora(a.previsao)}.` }); }
     }
-    // agenda: quem marcou e ainda não chegou (o "Chegou" na agenda tira o aviso)
+    // agenda: aviso no tempo escolhido (5, 10, 15, 30 min ou 1 hora antes) e de novo na hora.
+    // "Cliente traz": avisa que ainda não chegou. "Vou buscar" (leva e traz): lembra de ir buscar.
     for (const g of DB.agendaDoDia()) {
       const t = new Date(g.quando).getTime(), min = Math.round((t - agora) / 60000), quem = g.nome || 'Cliente', oQue = `${g.servico || 'serviço a combinar'}${g.veiculo ? ' · ' + g.veiculo : ''}`;
-      if (min > 0 && min <= 30) out.push({ id: `agenda:${g.id}:${g.quando}`, tipo: 'agenda', g, titulo: `${quem} marcou às ${U.hora(g.quando)} e ainda não chegou`, txt: `Faltam ${min} min. ${oQue}` });
-      else if (min <= 0 && min > -180) out.push({ id: `agenda-hora:${g.id}:${g.quando}`, tipo: 'agenda-atraso', g, titulo: `Deu ${U.hora(g.quando)} e ${quem} não chegou`, txt: `${-min < 2 ? 'Era agora.' : `Passou ${-min} min.`} Mande uma mensagem ou ligue. ${oQue}` });
+      const antes = g.avisar_min == null ? 30 : Number(g.avisar_min), busca = g.tipo === 'buscar', onde = busca && g.endereco ? g.endereco + ' · ' : '';
+      if (antes > 0 && min > 0 && min <= antes) out.push({ id: `agenda:${g.id}:${g.quando}`, tipo: 'agenda', g, titulo: busca ? `Daqui a ${min} min: buscar o carro de ${quem}` : `${quem} marcou às ${U.hora(g.quando)} e ainda não chegou`, txt: busca ? `Às ${U.hora(g.quando)}. ${onde}${oQue}` : `Faltam ${min} min. ${oQue}` });
+      else if (min <= 0 && min > -180) out.push({ id: `agenda-hora:${g.id}:${g.quando}`, tipo: 'agenda-atraso', g, titulo: busca ? `Deu ${U.hora(g.quando)}: hora de buscar o carro de ${quem}` : `Deu ${U.hora(g.quando)} e ${quem} não chegou`, txt: busca ? `${onde}${oQue}` : `${-min < 2 ? 'Era agora.' : `Passou ${-min} min.`} Mande uma mensagem ou ligue. ${oQue}` });
     }
+    // backup da semana: toda segunda-feira lembra o dono (some quando ele faz)
+    if (App.user.perfil === 'dono' && window.Backup && Backup.atrasado()) out.push({ id: `backup:${Backup.semana()}`, tipo: 'backup', titulo: 'Hora do backup da semana', txt: 'Toque aqui para salvar uma cópia dos seus dados e dos seus clientes no computador, na pasta “Backups Lava Rápido”.' });
     return out;
   };
 
@@ -69,24 +75,27 @@
   A.iniciar = () => { clearInterval(timer); timer = setInterval(A.tick, 20000); setTimeout(A.tick, 1500); };
 
   const urgente = (x) => x.tipo === 'atraso' || x.tipo === 'agenda-atraso';
-  const icone = (x) => (x.tipo.startsWith('agenda') ? 'calendario' : 'relogio');
+  const icone = (x) => (x.tipo.startsWith('agenda') ? 'calendario' : x.tipo === 'backup' ? 'nuvem' : 'relogio');
 
   // notificação do sistema (aparece mesmo com outra janela na frente)
   A.podeNotificar = () => 'Notification' in window;
   A.notificar = (x) => {
     if (!A.podeNotificar() || Notification.permission !== 'granted') return;
-    const o = { body: x.txt, tag: x.id, icon: '/assets/icons/icon-192.png', badge: '/assets/icons/icon-192.png', data: { rota: x.tipo.startsWith('agenda') ? 'agenda' : 'patio' } };
+    const o = { body: x.txt, tag: x.id, icon: '/assets/icons/icon-192.png', badge: '/assets/icons/icon-192.png', data: { rota: x.tipo.startsWith('agenda') ? 'agenda' : x.tipo === 'backup' ? 'backup' : 'patio' } };
     const direto = () => { try { new Notification(x.titulo, o); } catch (e) {} };
     if (navigator.serviceWorker && navigator.serviceWorker.getRegistration) navigator.serviceWorker.getRegistration().then((r) => (r ? r.showNotification(x.titulo, o) : direto())).catch(direto);
     else direto();
   };
 
   // mensagem pronta para o cliente que marcou horário
-  const msgCliente = (x) => (x.tipo === 'agenda-atraso'
+  const msgCliente = (x) => (x.g.tipo === 'buscar'
+    ? `Olá, ${U.primeiroNome(x.g.nome)}! Estamos indo buscar seu carro${x.g.veiculo ? ' (' + x.g.veiculo + ')' : ''}. Até já!\n${DB.lava().nome}`
+    : x.tipo === 'agenda-atraso'
     ? `Olá, ${U.primeiroNome(x.g.nome)}! Seu horário aqui era às ${U.hora(x.g.quando)}. Ainda vem hoje? Se precisar remarcar, é só avisar.\n${DB.lava().nome}`
     : DB.msgAgenda(x.g));
   const botoesCliente = (x) => (x.g && U.telOk(x.g.telefone)
-    ? `<button type="button" class="btn btn-p" data-zap>${U.icon('zap')}<span>WhatsApp</span></button><a class="btn btn-p" href="tel:+55${U.telDig(x.g.telefone)}">${U.icon('fone')}<span>Ligar</span></a>` : '');
+    ? `<button type="button" class="btn btn-p" data-zap>${U.icon('zap')}<span>WhatsApp</span></button><a class="btn btn-p" href="tel:+55${U.telDig(x.g.telefone)}">${U.icon('fone')}<span>Ligar</span></a>` : '')
+    + (x.g && x.g.tipo === 'buscar' && x.g.endereco ? `<a class="btn btn-p" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(x.g.endereco)}" target="_blank" rel="noopener">${U.icon('bandeira')}<span>Mapa</span></a>` : '');
 
   A.pintarSino = (l) => {
     const b = document.getElementById('btSino'); if (!b) return;
@@ -98,6 +107,7 @@
 
   const abrir = (x) => {
     if (x.tipo.startsWith('agenda')) return App.ir('agenda');
+    if (x.tipo === 'backup') return App.ir('backup');
     App.ir(x.a.status === 'pronto' ? 'patio/pronto' : 'patio');
     setTimeout(() => { if (Store.por('atendimentos', x.a.id)) Atend.detalhe(x.a); }, 350);
   };

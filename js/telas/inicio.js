@@ -23,7 +23,15 @@
       const r = An.resumo(Store.s.atendimentos, h0, U.somaDias(h0, 1)), ontem = An.resumo(Store.s.atendimentos, U.somaDias(h0, -1), h0);
       const aReceber = abertos.reduce((t, a) => t + (Number(a.total) || 0), 0);   // tudo que está no pátio, de qualquer dia
       const atrasados = abertos.filter(DB.atrasado).length, prontos = abertos.filter((a) => a.status === 'pronto').length;
-      const pag = An.ordenado(r.porPagamento, 'valor');
+      // fiado: o que ficou para depois não entrou no caixa; o fiado recebido hoje entrou
+      const amanha = U.somaDias(h0, 1).toISOString(), h0i = h0.toISOString();
+      const noFiadoHoje = Store.s.atendimentos.filter((a) => a.status === 'entregue' && a.pagamento === 'Fiado' && a.entregue_em >= h0i && a.entregue_em < amanha).reduce((t, a) => t + (Number(a.total) || 0), 0);
+      const fiadoPagoHoje = DB.fiadosPagos(h0i).filter((a) => a.fiado_pago_em < amanha);
+      const recebido = r.faturamento - noFiadoHoje + fiadoPagoHoje.reduce((t, a) => t + (Number(a.total) || 0), 0);
+      const caixa = new Map(); for (const p of r.porPagamento.values()) if (p.rot !== 'Fiado') caixa.set(p.rot, { ...p });
+      for (const a of fiadoPagoHoje) { const k = a.fiado_pagamento || 'Não informado', x = caixa.get(k) || { rot: k, qtd: 0, valor: 0 }; x.qtd++; x.valor += Number(a.total) || 0; caixa.set(k, x); }
+      const pag = An.ordenado(caixa, 'valor');
+      const fiados = DB.fiadoPorCliente(), fiadoTotal = fiados.reduce((t, g) => t + g.total, 0);
       const ps = passos(), faltam = ps.filter((p) => !p.ok);
       const comPremio = Store.s.clientes.filter((c) => c.ativo !== false && DB.fidelidade(c).alcancados.length).length;
       const lim = DB.cfg().sumidoDias;
@@ -36,7 +44,7 @@
         </section>` : ''}
 
         <section class="hoje">
-          <div class="hoje-num"><span>Recebido hoje</span><b>${U.brl(r.faturamento)}</b>
+          <div class="hoje-num"><span>Recebido hoje</span><b>${U.brl(recebido)}</b>
             <small>${aReceber ? `+ ${U.brl(aReceber)} a receber dos carros no pátio` : 'nenhum carro pendente'}${ontem.faturamento ? ` · ontem: ${U.brl(ontem.faturamento)}` : ''}</small></div>
           <a class="btn btn-marca btn-g so-celular" href="#/entrada">${U.icon('mais')}<span>Chegou carro</span></a>
         </section>
@@ -62,10 +70,14 @@
             : '<p class="mudo">Nenhum carro no pátio neste momento.</p>'}
         </section>
 
+        ${fiadoTotal ? `<a class="faixa-agenda" href="#/fiado">${U.icon('relogio')}<span><b>Fiado a receber: ${U.brl(fiadoTotal)}</b><small>${fiados.length} cliente${fiados.length > 1 ? 's' : ''} · toque para ver quem deve e cobrar</small></span>${U.icon('seta')}</a>` : ''}
+
         <div class="grade2">
           <section class="cartao">
             <div class="cartao-cab"><h3>Caixa de hoje</h3></div>
-            ${pag.length ? pag.map((p) => `<div class="par"><span>${U.esc(p.rot)} <small class="mudo">(${p.qtd})</small></span><b>${U.brl(p.valor)}</b></div>`).join('') + `<div class="par total"><span>Total</span><b>${U.brl(r.faturamento)}</b></div>` : '<p class="mudo">Nenhum carro entregue hoje ainda.</p>'}
+            ${pag.length ? pag.map((p) => `<div class="par"><span>${U.esc(p.rot)} <small class="mudo">(${p.qtd})</small></span><b>${U.brl(p.valor)}</b></div>`).join('') + `<div class="par total"><span>Total</span><b>${U.brl(recebido)}</b></div>` : `<p class="mudo">${noFiadoHoje ? 'Nada recebido hoje ainda.' : 'Nenhum carro entregue hoje ainda.'}</p>`}
+            ${noFiadoHoje ? `<p class="mudo pequeno">Ficou no fiado hoje: <b>${U.brl(noFiadoHoje)}</b> (não entra no caixa até receber).</p>` : ''}
+            ${fiadoPagoHoje.length ? `<p class="mudo pequeno">Inclui ${U.brl(fiadoPagoHoje.reduce((t, a) => t + (Number(a.total) || 0), 0))} de fiado recebido hoje.</p>` : ''}
           </section>
           <section class="cartao">
             <div class="cartao-cab"><h3>Clientes</h3><a class="link" href="#/clientes">Ver todos</a></div>

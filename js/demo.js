@@ -143,6 +143,17 @@
       s.agendamentos.push({ id: id(), lava_id: LAVA, cliente_id: c.id, nome: c.nome, telefone: c.telefone, placa: v.placa, veiculo: DB.nomeVeiculo(v), servico: sv.nome, valor: sv.precos[v.porte] || 0, quando: q.toISOString(), obs: '', status: 'marcado', atendimento_id: null, criado_por: 'Carlos', criado_em: new Date().toISOString() });
     });
 
+    // um horário de "vou buscar o carro" (leva e traz), com endereço e aviso 10 min antes
+    const busca = s.agendamentos[2]; if (busca) Object.assign(busca, { tipo: 'buscar', endereco: 'Rua das Palmeiras, 120 · Vila Cruzeiro', avisar_min: 10 });
+
+    // fiado: um parceiro que paga no fim do mês (3 serviços em aberto e 1 já pago)
+    const parc = pesoCliente.map((p) => p[0]).find((c) => c !== fiel && s.atendimentos.filter((a) => a.cliente_id === c.id && a.status === 'entregue' && U.dia(a.entregue_em) < s.dia).length >= 4);
+    if (parc) {
+      parc.nome = 'Auto Center Parceiro';
+      const ents = s.atendimentos.filter((a) => a.cliente_id === parc.id && a.status === 'entregue' && U.dia(a.entregue_em) < s.dia).slice(-4);
+      ents.forEach((a, i) => { a.pagamento = 'Fiado'; a.fiado_aberto = i > 0; if (!i) { a.fiado_pago_em = U.somaDias(new Date(), -5).toISOString(); a.fiado_pagamento = 'Pix'; } });
+    }
+
     // despesas dos últimos 4 meses
     for (let m = 0; m < 4; m++) {
       const base = new Date(hoje.getFullYear(), hoje.getMonth() - m, 1);

@@ -16,6 +16,8 @@
     ['Início', 'Mostra quanto entrou hoje, quantos carros passaram e o que está no pátio agora, de onde você estiver.'],
     ['Resultados', 'Os gráficos: dias e horários mais fortes, serviços que mais vendem e formas de pagamento.'],
     ['Produtos', 'Cadastre seus produtos com valor e quantidade. Quando faltar, toque em “Pedir” e gere o PDF do pedido com a sua logo para mandar ao fornecedor.'],
+    ['Fiado', 'Quem paga depois: na entrega toque em “Fiado”. Em Mais → Fiado você vê quanto cada um deve, manda o resumo no WhatsApp e marca quando recebeu.'],
+    ['Backup', 'Toda segunda o sininho lembra: salve uma cópia dos seus dados e clientes no computador, na pasta “Backups Lava Rápido”.'],
     ['Financeiro', 'Lance as despesas do mês (aluguel, água, luz, produtos) para ver quanto sobra de verdade.'],
     ['Clientes', 'Quem tem prêmio de fidelidade, quem está quase lá e quem sumiu, para chamar de volta pelo WhatsApp.'],
     ['Ajustes', 'Sua logo e cor, serviços e preços, regras da fidelidade, textos das mensagens e os acessos da equipe.']

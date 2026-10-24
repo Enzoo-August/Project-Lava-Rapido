@@ -35,7 +35,7 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - Corrigir engano: voltar etapa, trocar serviço, cancelar, desfazer entrega.
 - **Serviço fora da tabela:** botão "Outro serviço" para escrever o nome e o valor na hora (ex.: polimento de farol).
 - **Serviço "a combinar":** serviço sem preço na tabela pergunta o valor quando é marcado. Na volta do cliente, já vem com o valor que ele pagou da última vez.
-- **Entrega em outro dia:** polimento, vitrificação e outros serviços longos já sugerem o dia seguinte. Dá para escolher dia e hora.
+- **Como o carro volta:** nada vem marcado sozinho. “Leva e traz (a gente entrega)” ou “Vai esperar aqui”, e a hora combinada é opcional (em 30 min… ou dia e hora exatos). Leva e traz manda a mensagem “já vamos levar até você”. Pode desligar a pergunta em Opções.
 
 ### Agenda (para quem trabalha com hora marcada)
 
@@ -44,7 +44,7 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - **Lembrar:** WhatsApp com o lembrete do horário já escrito.
 - **Chegou:** abre a entrada do carro já preenchida com cliente, carro e serviço combinados. O horário fica marcado como "chegou".
 - Também: mudar dia/hora, "não veio" e cancelar.
-- **Aviso com som:** 30 minutos antes de um horário em que o cliente ainda não chegou e de novo quando dá a hora marcada, com botões de WhatsApp (mensagem pronta) e Ligar. Pode aparecer também como notificação do celular, com o aplicativo aberto.
+- **Aviso com som** no tempo escolhido ao marcar (na hora, 5, 10, 15, 30 min ou 1 hora antes) e de novo na hora. Horário de **“Vou buscar o carro” (leva e traz)** com endereço (abre no mapa), aviso “buscar o carro de fulano” e “Busquei” abre a entrada já como leva e traz. **Pôr no calendário do celular**: o próprio celular avisa, mesmo com o app fechado.
 - Aparece no balcão (faixa "Agenda de hoje"), no menu do funcionário e no Início do dono.
 - Ajuda em 5 passos e a tela **Instalar o app**: passo a passo com o desenho de cada botão para iPhone/iPad (Safari), Android (Chrome e Samsung Internet), computador (Chrome/Edge, Windows e Mac) e Mac com Safari, com “não achei a opção” e “como tirar”; abre na aba do aparelho, tem botão “Instalar agora” onde o navegador permite e fica também na tela de entrada e na Administração.
 
@@ -65,6 +65,8 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
 - **Resultados:** hoje, 7 dias, mês, mês passado, 90 dias, com comparação. Frases prontas ("sábado é o dia mais forte"), movimento por dia, serviços mais vendidos, horários de pico, dias da semana, formas de pagamento, tamanho dos veículos, quem lavou.
 - **Financeiro:** entrou, saiu, sobrou. Despesas, movimento dia a dia e planilha do mês.
 - **Clientes:** busca por nome, telefone ou placa; filtros Com prêmio, Quase lá, Sumidos, Novos; ficha com histórico; chamar de volta pelo WhatsApp.
+- **Fiado:** na entrega, “Fiado: fulano paga depois” (pode desligar em Opções). Em Mais → Fiado: quanto cada cliente/parceiro deve, desde quando, resumo para cobrar no WhatsApp e “Recebi” (escolhe o que foi pago e a forma). O fiado não entra no “Recebido hoje” até ser pago; o recebido entra no caixa do dia.
+- **Backup dos dados:** toda segunda o sininho lembra. Salva dois arquivos (backup completo .json e planilha de clientes .csv). No computador, na primeira vez a pessoa cria/escolhe a pasta “Backups Lava Rápido” e depois grava direto nela; no celular, pelo compartilhar.
 - **Produtos:** cadastro dos produtos (nome, valor, embalagem, fornecedor) com a quantidade em estoque; botões − e + para gastar e repor; aviso de produto acabando e quanto já está a caminho. **Pedido de compra:** itens do estoque ou produtos novos (que podem entrar no estoque quando chegarem), fornecedor com WhatsApp, forma de pagamento (Pix, boleto com vencimento, cartão de crédito com parcelas, dinheiro, a combinar), frete (grátis, pago com valor, ou buscar), desconto opcional do fornecedor, prazo de entrega e observação. Gera PDF com a logo do lava: no computador, “Salvar PDF como…” (escolhe a pasta), imprimir e WhatsApp do fornecedor; no celular, enviar/salvar pelo compartilhar. Editar mantém o número; “Pedir de novo” copia; cancelar. Quando chega, soma no estoque e lança o total nas despesas (Produtos).
 - **Ajustes:** marca (nome, logo, cor, barra do alto clara, preta ou na cor da marca, telefone, link do Google), serviços e preços, fidelidade, textos das mensagens, equipe e acessos, formas de pagamento, etapas.
 

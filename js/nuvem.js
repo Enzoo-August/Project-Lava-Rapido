@@ -198,7 +198,7 @@
     const temCopia = !!(c && c.user && c.user.id === user.id && c.s && c.s.lava && c.s.lava.id);
     if (temCopia) {
       const corte = U.somaDias(U.inicioDia(), -3).toISOString();
-      c.s.atendimentos = (c.s.atendimentos || []).filter((a) => ABERTOS.includes(a.status) || a.entrada_em > corte || (a.entregue_em && a.entregue_em > corte) || (a.cancelado_em && a.cancelado_em > corte));
+      c.s.atendimentos = (c.s.atendimentos || []).filter((a) => ABERTOS.includes(a.status) || a.fiado_aberto || a.entrada_em > corte || (a.entregue_em && a.entregue_em > corte) || (a.cancelado_em && a.cancelado_em > corte));
       Store.usar(c.s);
     } else Store.usar(Store.vazio());
     N.pronto = true;
@@ -220,6 +220,9 @@
     if (user.perfil === 'dono') {
       ouvintes.push(A.ouvir(col('despesas'), [['data', '>=', U.dia(U.somaDias(new Date(), -400))]], receber('despesas'), falhaLeitura));
       ouvintes.push(A.ouvir(col('produtos'), desde('produtos'), receber('produtos'), falhaLeitura));
+      // fiado: tudo que ainda falta receber (de qualquer data) e o que foi recebido nos últimos 60 dias
+      ouvintes.push(A.ouvir(col('atendimentos'), [['fiado_aberto', '==', true]], receber('atendimentos'), falhaLeitura));
+      ouvintes.push(A.ouvir(col('atendimentos'), [['fiado_pago_em', '>=', U.somaDias(U.inicioDia(), -60).toISOString()]], receber('atendimentos'), falhaLeitura));
       ouvintes.push(A.ouvir(col('pedidos'), [['criado_em', '>=', U.somaDias(U.inicioDia(), -120).toISOString()]], receber('pedidos'), falhaLeitura));
     }
     if (!temCopia) {
@@ -227,7 +230,17 @@
       if (!Store.s.lava.id) throw new Error(N.erro || 'Sem internet para carregar os dados pela primeira vez.');
     }
   };
-  N.puxar = async () => false;   // com os ouvintes, o que muda já chega sozinho
+  N.puxar = async () => false;
+
+  // backup: tudo do lava, direto do banco (não só o que está no aparelho)
+  N.backup = async () => {
+    const L = 'lavas/' + lavaId(), out = { lava: await A.ler(L) };
+    const tabelas = ['servicos', 'clientes', 'veiculos', 'atendimentos', 'agendamentos', 'despesas', 'produtos', 'pedidos'];
+    const listas = await Promise.all(tabelas.map((t) => A.buscar(L + '/' + t, [])));
+    tabelas.forEach((t, i) => { out[t] = listas[i]; });
+    out.equipe = (await A.buscar('usuarios', [['lava_id', '==', lavaId()]])).map((u) => ({ nome: u.nome, login: u.login, perfil: u.perfil, ativo: u.ativo }));
+    return out;
+  };   // com os ouvintes, o que muda já chega sozinho
 
   // movimento de um período (painel do dono): chegou OU foi entregue no período
   N.periodo = async (deIso, ateIso) => {

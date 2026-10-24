@@ -17,5 +17,5 @@ window.LAVA_CFG = {
   sitePrincipal: 'https://lavarapido.web.app',
   // WhatsApp de quem dá suporte ao sistema (aparece na Ajuda e no aviso de assinatura). Só números, com DDD.
   suporte: '',
-  versao: 16
+  versao: 17
 };
