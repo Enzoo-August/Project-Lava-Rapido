@@ -111,8 +111,13 @@ window.testeDono = async () => {
   ok('fiado antigo em aberto aparece para o dono', DB.fiados().some((x) => x.id === 'fiado-velho'));
   DB.receberFiado([Store.por('atendimentos', 'fiado-velho')], 'Pix'); await esp(300);
   ok('receber fiado grava no banco', FAKE.ler(`${L}/atendimentos/fiado-velho`).fiado_aberto === false && FAKE.ler(`${L}/atendimentos/fiado-velho`).fiado_pagamento === 'Pix');
+  const av = DB.salvarAvaria(null, { placa: 'AVA1R00', descricao: 'Risco teste', foto: 'data:image/jpeg;base64,AAAA' }); await esp(300);
+  ok('avaria com foto gravada no banco', FAKE.ler(`${L}/avarias/${av.id}`).placa === 'AVA1R00');
+  Store.s.avarias = []; Store.reindex(); const achadas = await DB.carregarAvarias('AVA1R00');
+  ok('avarias do carro são buscadas no banco pela placa', achadas.length === 1 && achadas[0].descricao === 'Risco teste');
+  Nuvem.guardar(); await esp(400); ok('fotos não vão para a cópia do aparelho', !JSON.stringify(JSON.parse(localStorage.getItem('lr.cache') || '{}').s.avarias || []).includes('base64'));
   const bk = await Nuvem.backup();
-  ok('backup puxa tudo do banco (inclusive o que não está no aparelho)', bk.atendimentos.some((x) => x.id === 'fiado-velho') && bk.servicos.length >= 1 && bk.produtos.length >= 1 && bk.equipe.some((u) => u.perfil === 'dono') && !bk.equipe.some((u) => 'senha' in u));
+  ok('backup puxa tudo do banco (inclusive o que não está no aparelho)', bk.atendimentos.some((x) => x.id === 'fiado-velho') && bk.servicos.length >= 1 && bk.produtos.length >= 1 && bk.avarias.length >= 1 && bk.equipe.some((u) => u.perfil === 'dono') && !bk.equipe.some((u) => 'senha' in u));
   // acessos
   await Nuvem.criarAcesso({ login: 'Nova.Func', senha: 'senha123', nome: 'Nova Func', perfil: 'funcionario' }); await esp(200);
   const nova = Store.s.equipe.find((e) => e.login === 'nova.func');

@@ -114,6 +114,7 @@
               <span class="linha-txt"><b>${U.esc(DB.nomeVeiculo(v))}</b><small>${CAT.porteNome(v.porte)}${v.visitas ? ' · ' + v.visitas + ' lavagens' : ''}${v.obs ? ' · ' + U.esc(v.obs) : ''}</small></span>
               ${bloqueado ? '' : `<span class="veic-acoes"><button class="btn btn-p" data-acao="veiculo" data-placa="${v.placa}">${U.icon('editar')}<span>Editar</span></button>
               <a class="btn btn-marca btn-p" href="#/entrada/p/${v.placa}">${U.icon('mais')}<span>Chegou</span></a></span>`}
+              <button class="btn btn-p" data-acao="avarias" data-placa="${v.placa}">${U.icon('camera')}<span>Avarias${DB.avariasAtivas(v.placa).length ? ' (' + DB.avariasAtivas(v.placa).length + ')' : ''}</span></button>
             </div>`).join('') || '<p class="mudo">Nenhum veículo.</p>'}</div>
           ${bloqueado ? '' : `<a class="link" href="#/entrada/c/${c.id}">+ Chegou com outro carro</a>`}
         </section>
@@ -130,6 +131,7 @@
         if (acao === 'sumido') return U.zap(c.telefone, DB.msg('sumido', null, c));
         if (acao === 'editar' && await editarCliente(c)) { U.toast('Cliente atualizado'); App.render(); }
         if (acao === 'veiculo' && await editarVeiculo(DB.veiculo(b.dataset.placa))) { U.toast('Veículo atualizado'); App.render(); }
+        if (acao === 'avarias') return Avaria.galeria(b.dataset.placa, { cliente: c, aoFechar: () => App.render() });
       };
 
       DB.historico(c.id).then((lista) => {

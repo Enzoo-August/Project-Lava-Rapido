@@ -231,11 +231,12 @@
     }
   };
   N.puxar = async () => false;
+  N.avarias = async (placa) => { const l = await A.buscar('lavas/' + lavaId() + '/avarias', [['placa', '==', placa]]); for (const r of l) Store.mesclar('avarias', r); return l; };
 
   // backup: tudo do lava, direto do banco (não só o que está no aparelho)
   N.backup = async () => {
     const L = 'lavas/' + lavaId(), out = { lava: await A.ler(L) };
-    const tabelas = ['servicos', 'clientes', 'veiculos', 'atendimentos', 'agendamentos', 'despesas', 'produtos', 'pedidos'];
+    const tabelas = ['servicos', 'clientes', 'veiculos', 'atendimentos', 'agendamentos', 'despesas', 'produtos', 'pedidos', 'avarias'];
     const listas = await Promise.all(tabelas.map((t) => A.buscar(L + '/' + t, [])));
     tabelas.forEach((t, i) => { out[t] = listas[i]; });
     out.equipe = (await A.buscar('usuarios', [['lava_id', '==', lavaId()]])).map((u) => ({ nome: u.nome, login: u.login, perfil: u.perfil, ativo: u.ativo }));
@@ -305,7 +306,7 @@
   let tCache = null;
   N.guardar = () => {
     clearTimeout(tCache);
-    tCache = setTimeout(() => { if (!App.user || !Store.s) return; try { localStorage.setItem(CACHE, JSON.stringify({ v: 2, user: App.user, s: Store.s })); } catch (e) {} }, 300);
+    tCache = setTimeout(() => { if (!App.user || !Store.s) return; try { localStorage.setItem(CACHE, JSON.stringify({ v: 2, user: App.user, s: { ...Store.s, avarias: [] } })); } catch (e) {} }, 300);
   };
   const lerCache = () => { try { const c = JSON.parse(localStorage.getItem(CACHE) || 'null'); return c && c.v === 2 ? c : null; } catch (e) { return null; } };
 

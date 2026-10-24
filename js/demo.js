@@ -146,6 +146,11 @@
     // um horário de "vou buscar o carro" (leva e traz), com endereço e aviso 10 min antes
     const busca = s.agendamentos[2]; if (busca) Object.assign(busca, { tipo: 'buscar', endereco: 'Rua das Palmeiras, 120 · Vila Cruzeiro', avisar_min: 10 });
 
+    // avaria de exemplo: um carro que já veio com risco registrado (foto desenhada)
+    const comRisco = s.veiculos.find((v) => !U.semPlaca(v.placa) && v.cliente_id && s.atendimentos.some((a) => a.placa === v.placa && a.status === 'entregue') && !s.atendimentos.some((a) => a.placa === v.placa && ['aguardando', 'lavando', 'pronto'].includes(a.status)) && (!s.dica || v.placa !== s.dica.placa));
+    if (comRisco && window.Avaria) s.avarias.push({ id: id(), lava_id: LAVA, placa: comRisco.placa, cliente_id: comRisco.cliente_id, atendimento_id: null, descricao: 'Risco na porta do motorista', foto: Avaria.fotoExemplo('Risco na porta do motorista'), status: 'ativa', criada_em: U.somaDias(new Date(), -12).toISOString(), criada_por: 'Jonas', confirmada_em: null, resolvida_em: null, excluido: false });
+    s.dicaAvaria = comRisco ? comRisco.placa : null;
+
     // fiado: um parceiro que paga no fim do mês (3 serviços em aberto e 1 já pago)
     const parc = pesoCliente.map((p) => p[0]).find((c) => c !== fiel && s.atendimentos.filter((a) => a.cliente_id === c.id && a.status === 'entregue' && U.dia(a.entregue_em) < s.dia).length >= 4);
     if (parc) {

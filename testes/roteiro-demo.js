@@ -22,6 +22,7 @@ window.testeTudo = async () => {
   const campo = (el, nome, valor) => { const i = q(`[name=${nome}]`, el); i.value = valor; i.dispatchEvent(new Event('input')); i.dispatchEvent(new Event('change')); };
   const zap = []; U.zap = (t, m) => zap.push([t, m]);
   const dinheiro = (n) => U.brl(n);
+  const E_reset = () => {};
   const E_obs = () => q('.pe-total') ? q('.pe-total').innerText : tela();
   const carrinhoVazio = () => { const r = Store.pref('pedido.' + (DB.lava().id || 'demo')); return !(r && (Array.isArray(r) ? r : r.itens || []).length); };
 
@@ -462,6 +463,46 @@ window.testeTudo = async () => {
     const dados = js ? JSON.parse(await grav[js].text()) : {};
     ok('backup: grava o .json completo e a planilha .csv na pasta', !!js && !!cs && /^Backup .* \d{4}-\d\d-\d\d\.json$/.test(js) && dados.clientes.length === Store.s.clientes.length && dados.atendimentos.length > 0 && (await grav[cs].text()).split('\r\n').length === Store.s.clientes.length + 1, nomes.join(', '));
     ok('backup feito: o aviso some', !Avisos.lista().some((x) => x.tipo === 'backup') && /Backup feito/.test((modal() || {}).innerText || '')); await fecharModais();
+  });
+
+  await passo('14f avarias com foto e observação escrita', async () => {
+    const oFoto = Avaria.escolherFoto; Avaria.escolherFoto = async () => Avaria.fotoExemplo('Amassado de teste');
+    const pl = Store.s.dicaAvaria, antiga = DB.avariasAtivas(pl)[0];
+    await entrar('funcionario'); await ir('entrada'); await digitar(pl); await clic(`[data-placa="${pl}"]`); await esp(200);
+    ok('carro com avaria antiga: pergunta se ainda está lá', !!antiga && !!q('.av-caixa') && /ainda estão lá/.test(q('.av-caixa').innerText) && !!q(`[data-av-sim="${antiga.id}"]`) && !!q(`[data-av-nao="${antiga.id}"]`));
+    await clic(`[data-av-sim="${antiga.id}"]`); ok('“Continua” fica marcado', !!q(`[data-av-sim="${antiga.id}"].ativo`));
+    await clic('[data-acao=foto]'); await esp(200);
+    ok('foto: abre a janela com a foto e onde é', !!q('.modal .av-grande') && !!q('.modal [name=descricao]'));
+    await clic('#avLocais [data-l="Amassado"]'); await clic('#avLocais [data-l="Porta"]');
+    ok('atalhos montam a descrição com o artigo certo', q('.modal [name=descricao]').value === 'Amassado na porta', q('.modal [name=descricao]').value);
+    campo(modal(), 'descricao', 'Amassado na porta de teste'); await clic(qq('.modal-acoes button').find((x) => /Salvar foto/.test(x.innerText))); await esp(200);
+    ok('foto nova aparece na chegada e marca “já tem risco”', /Amassado na porta de teste/.test(tela()) && !!q('[data-obs="Já tem risco ou amassado"].ativo'));
+    await clic('[data-acao=obs-livre]'); q('.modal textarea').value = 'Não mexer no som'; await clic(qq('.modal-acoes button').find((x) => /Anotar/.test(x.innerText))); await esp(150);
+    ok('observação escrita entra como etiqueta', !!q('[data-obs="Não mexer no som"].ativo'));
+    await clic('[data-obs="Não mexer no som"]'); ok('tocar na etiqueta tira a observação', !q('[data-obs="Não mexer no som"]'));
+    await clic('[data-acao=obs-livre]'); q('.modal textarea').value = 'Não mexer no som'; await clic(qq('.modal-acoes button').find((x) => /Anotar/.test(x.innerText))); await esp(150);
+    await clic('[data-acao=confirmar]'); const at = ultimo(), nova = DB.avariasDe(pl).find((x) => x.descricao === 'Amassado na porta de teste');
+    ok('confirmar: foto salva presa à placa e ao atendimento', !!nova && nova.atendimento_id === at.id && nova.status === 'ativa' && /^data:image\/jpeg/.test(nova.foto) && nova.foto.length < 700000);
+    ok('confirmar: avaria antiga conferida (“continua”)', !!antiga.confirmada_em && antiga.status === 'ativa');
+    ok('confirmar: observação escrita e “foto de avaria” no atendimento', /Não mexer no som/.test(at.obs) && /foto de avaria/.test(at.obs));
+    ok('tela final: mandar as fotos para o cliente', !!q('[data-acao=enviar-fotos]'));
+    await ir('patio'); const cd = q(`.atend[data-id="${at.id}"]`); await clic(q('[data-acao=detalhe]', cd)); await esp(300);
+    ok('ficha do pátio: mostra as fotos das avarias', qq('#avDet .av-mini').length === 2);
+    await clic(qq('.modal .lista-menu button').find((x) => /Fotos de avaria/.test(x.innerText))); await esp(300);
+    ok('galeria: avarias ainda no carro', /Ainda no carro \(2\)/.test(q('#avGal').innerText));
+    await clic(`[data-av-res="${antiga.id}"]`); ok('marcar como resolvida', antiga.status === 'resolvida' && /Resolvidas \(1\)/.test(q('#avGal').innerText));
+    await clic(`[data-av-vol="${antiga.id}"]`); ok('“voltou a aparecer” reativa', antiga.status === 'ativa');
+    await clic(`[data-av-res="${antiga.id}"]`); await fecharModais(); await esp(200); await fecharModais();
+    await ir('entrada'); await clic('[data-acao=outro]').catch(() => {}); E_reset();
+    DB.status(at, 'cancelado');
+    await ir('entrada'); await digitar(pl); await clic(`[data-placa="${pl}"]`); await esp(200);
+    ok('na próxima chegada: só pergunta da que não foi resolvida', qq('.av-caixa .av-mini').length === 1 && /Amassado na porta de teste/.test(q('.av-caixa').innerText));
+    await clic(`[data-av-nao="${nova.id}"]`); await clic('[data-acao=confirmar]');
+    ok('“já foi resolvida” na chegada: some das ativas', nova.status === 'resolvida' && !DB.avariasAtivas(pl).length);
+    DB.status(ultimo(), 'cancelado');
+    await entrar('dono'); const v = DB.veiculo(pl); await ir('cliente/' + v.cliente_id, 400);
+    ok('cadastro do cliente: botão das avarias do carro', !!q(`[data-acao="avarias"][data-placa="${pl}"]`));
+    Avaria.escolherFoto = oFoto;
   });
 
   await passo('14c avisos da agenda', async () => {

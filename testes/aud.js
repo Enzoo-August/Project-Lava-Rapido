@@ -69,6 +69,8 @@ window.aud = async (perfil, placa) => {
   location.hash = '#/patio/pronto'; await esp(300);
   if (await clic('[data-acao=entregar]')) { medir('patio/janela entregar'); await clic('.modal [data-fechar]'); await esp(200); }
   if (perfil === 'dono') {
+    const vAv = Store.s.dicaAvaria && DB.veiculo(Store.s.dicaAvaria);
+    if (vAv) { location.hash = '#/cliente/' + vAv.cliente_id; await esp(400); if (await clic(`[data-acao="avarias"][data-placa="${vAv.placa}"]`)) { await esp(300); medir('cliente/galeria de avarias'); if (await clic('[data-av-ver]')) { medir('avaria/foto grande'); await clic('.modal-fundo:last-child [data-fechar]'); await esp(150); } await clic('.modal [data-fechar]'); await esp(200); } }
     location.hash = '#/fiado'; await esp(300);
     if (await clic('[data-gr]')) { medir('fiado/janela do cliente'); await clic('.modal [data-fechar]'); await esp(200); }
     location.hash = '#/agenda'; await esp(300);

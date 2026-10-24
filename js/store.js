@@ -15,11 +15,11 @@
   window.Telas = {};   // cada arquivo de js/telas/ se registra aqui
 
   // coluna que identifica cada linha
-  S.CHAVE = { servicos: 'id', clientes: 'id', veiculos: 'placa', atendimentos: 'id', agendamentos: 'id', despesas: 'id', produtos: 'id', pedidos: 'id', equipe: 'user_id' };
+  S.CHAVE = { servicos: 'id', clientes: 'id', veiculos: 'placa', atendimentos: 'id', agendamentos: 'id', despesas: 'id', produtos: 'id', pedidos: 'id', avarias: 'id', equipe: 'user_id' };
 
   S.vazio = () => ({
     lava: { id: '', slug: '', nome: 'Lava Rápido', marca: {}, config: {}, ativo: true, plano: 'mensal', pago_ate: null },
-    servicos: [], clientes: [], veiculos: [], atendimentos: [], agendamentos: [], despesas: [], produtos: [], pedidos: [], equipe: []
+    servicos: [], clientes: [], veiculos: [], atendimentos: [], agendamentos: [], despesas: [], produtos: [], pedidos: [], avarias: [], equipe: []
   });
 
   S.usar = (estado) => { S.s = { ...S.vazio(), ...estado }; S.reindex(); S.rev++; };
@@ -42,7 +42,8 @@
     S.rev++;
     if (S.modo !== 'demo') { if (window.Nuvem) Nuvem.guardar(); return; }
     clearTimeout(timer);
-    timer = setTimeout(() => { try { localStorage.setItem(CHAVE_DEMO, JSON.stringify({ v: 1, s: S.s })); } catch (e) {} }, 250);
+    // na demonstração guarda só as últimas fotos de avaria (o espaço do aparelho é pequeno)
+    timer = setTimeout(() => { try { localStorage.setItem(CHAVE_DEMO, JSON.stringify({ v: 1, s: { ...S.s, avarias: (S.s.avarias || []).slice(-12) } })); } catch (e) {} }, 250);
   };
   S.lerDemo = () => { try { const c = JSON.parse(localStorage.getItem(CHAVE_DEMO) || 'null'); return c && c.v === 1 ? c.s : null; } catch (e) { return null; } };
   S.apagarDemo = () => { try { localStorage.removeItem(CHAVE_DEMO); } catch (e) {} };

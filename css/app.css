@@ -526,3 +526,18 @@ body *:not(input):not(textarea):not(select) { caret-color: transparent; }
 .pag-fiado { margin-top: 10px; border-style: dashed; }
 .fx-item span { flex: 1; } .fx-item small { font-weight: 700; color: var(--tinta); }
 #fxLista { display: grid; gap: 8px; }
+/* ---------- avarias (fotos de risco e amassado) ---------- */
+.btn-foto { border-style: dashed; margin-top: 8px; }
+.av-caixa { border: 1.5px solid var(--aviso); background: var(--aviso-claro); border-radius: 14px; padding: 12px; display: grid; gap: 8px; }
+.av-tit { display: flex; align-items: center; gap: 8px; } .av-tit .ic { color: var(--aviso); }
+.av-lista { display: grid; gap: 8px; margin-top: 8px; }
+.av-mini { display: flex; gap: 12px; align-items: center; background: var(--sup); border: 1px solid var(--linha); border-radius: 12px; padding: 8px; }
+.av-mini.resolvida { opacity: .7; }
+.av-foto { position: relative; flex: none; width: 84px; height: 64px; border-radius: 10px; overflow: hidden; background: var(--linha2); }
+.av-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.av-foto i { position: absolute; left: 0; right: 0; bottom: 0; background: rgba(21, 128, 61, .9); color: #fff; font-size: 11px; font-style: normal; font-weight: 700; text-align: center; }
+.av-mini > span { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.av-mini small { color: var(--mudo); font-size: 13px; }
+.av-mini .link { padding: 0; min-height: 32px; justify-self: start; }
+.av-resp { display: flex; gap: 6px; flex-wrap: wrap; }
+.av-grande { width: 100%; max-height: 55vh; object-fit: contain; border-radius: 12px; background: #000; display: block; }

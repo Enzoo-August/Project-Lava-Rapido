@@ -177,6 +177,23 @@
   // lê os campos de um formulário (name → valor)
   U.campos = (el) => { const o = {}; U.$$('[name]', el).forEach((i) => { o[i.name] = i.type === 'checkbox' ? i.checked : i.value.trim(); }); return o; };
 
+  // foto de avaria: reduz para ~1000 px em JPEG (uns 100 KB) para caber no banco
+  U.fotoPequena = (arquivo, lado = 1000, qualidade = 0.62) => new Promise((res, rej) => {
+    const img = new Image(), url = URL.createObjectURL(arquivo);
+    img.onload = () => {
+      const q = Math.min(1, lado / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * q); c.height = Math.round(img.height * q);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      let d = c.toDataURL('image/jpeg', qualidade);
+      if (d.length > 600000) d = c.toDataURL('image/jpeg', 0.45);
+      res(d);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Não consegui abrir essa foto.')); };
+    img.src = url;
+  });
+  U.arquivoDeFoto = (dataUrl, nome) => { const [cab, b64] = dataUrl.split(','), bin = atob(b64), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new File([u], nome, { type: (cab.match(/data:([^;]+)/) || [])[1] || 'image/jpeg' }); };
+
   // reduz uma imagem (logo) para caber no banco: devolve um "data:" pequeno
   U.imagemPequena = (arquivo, lado = 320) => new Promise((res, rej) => {
     const img = new Image(), url = URL.createObjectURL(arquivo);

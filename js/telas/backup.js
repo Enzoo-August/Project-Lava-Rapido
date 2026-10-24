@@ -34,7 +34,7 @@
   // ---------------- montar os arquivos ----------------
   const coletar = async () => {
     if (Store.modo === 'nuvem') return Nuvem.backup();
-    const s = Store.s; return { lava: s.lava, servicos: s.servicos, clientes: s.clientes, veiculos: s.veiculos, atendimentos: s.atendimentos, agendamentos: s.agendamentos, despesas: s.despesas, produtos: s.produtos, pedidos: s.pedidos, equipe: s.equipe.map((u) => ({ nome: u.nome, login: u.login, perfil: u.perfil, ativo: u.ativo })) };
+    const s = Store.s; return { lava: s.lava, servicos: s.servicos, clientes: s.clientes, veiculos: s.veiculos, atendimentos: s.atendimentos, agendamentos: s.agendamentos, despesas: s.despesas, produtos: s.produtos, pedidos: s.pedidos, avarias: s.avarias, equipe: s.equipe.map((u) => ({ nome: u.nome, login: u.login, perfil: u.perfil, ativo: u.ativo })) };
   };
   const nomeLimpo = (t) => String(t || 'Lava').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
   const arquivos = (d) => {

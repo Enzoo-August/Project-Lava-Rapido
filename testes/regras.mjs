@@ -92,6 +92,11 @@ caso('dono: vê e lança despesas', 'ALLOW', 'dono', 'create', 'lavas/L/despesas
 caso('dono: cadastra produto', 'ALLOW', 'dono', 'create', 'lavas/L/produtos/p1', { lava_id: 'L', nome: 'Shampoo', estoque: 2 });
 caso('dono: lê pedido de compra', 'ALLOW', 'dono', 'get', 'lavas/L/pedidos/x1', null, { lava_id: 'L', total: 90 });
 caso('dono: NÃO cria produto em outro lava', 'DENY', 'dono', 'create', 'lavas/L2/produtos/p1', { lava_id: 'L2', nome: 'X' });
+caso('funcionário: registra avaria com foto', 'ALLOW', 'func', 'create', 'lavas/L/avarias/a1', { lava_id: 'L', placa: 'ABC1D23', foto: 'data:image/jpeg;base64,AAAA', status: 'ativa' });
+caso('funcionário: vê as avarias do lava', 'ALLOW', 'func', 'get', 'lavas/L/avarias/a1', null, { lava_id: 'L', placa: 'ABC1D23', foto: 'x' });
+caso('funcionário: NÃO grava foto grande demais', 'DENY', 'func', 'create', 'lavas/L/avarias/a2', { lava_id: 'L', placa: 'ABC1D23', foto: 'x'.repeat(720000) });
+caso('dono: NÃO registra avaria em outro lava', 'DENY', 'dono', 'create', 'lavas/L2/avarias/a1', { lava_id: 'L2', placa: 'ABC1D23', foto: 'x' });
+caso('dono: NÃO vê avarias de outro lava', 'DENY', 'dono', 'get', 'lavas/L2/avarias/a1', null, { lava_id: 'L2', placa: 'ABC1D23', foto: 'x' });
 caso('funcionário: NÃO vê produtos', 'DENY', 'func', 'get', 'lavas/L/produtos/p1', null, { lava_id: 'L', nome: 'Shampoo' });
 caso('funcionário: NÃO cria pedido', 'DENY', 'func', 'create', 'lavas/L/pedidos/x1', { lava_id: 'L', total: 10 });
 caso('dono: cria acesso de funcionário no lava dele', 'ALLOW', 'dono', 'create', 'usuarios/x', { perfil: 'funcionario', ativo: true, lava_id: 'L' });

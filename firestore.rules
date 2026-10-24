@@ -72,6 +72,12 @@ service cloud.firestore {
         allow read: if dono(l);
         allow create, update: if dono(l) && lavaAtivo(l) && request.resource.data.lava_id == l;
       }
+      // avarias (riscos e amassados) com foto: todos do lava veem e registram; foto pequena (até ~700 KB)
+      match /avarias/{id} {
+        allow read: if membro(l);
+        allow create, update: if membro(l) && lavaAtivo(l) && request.resource.data.lava_id == l
+                              && request.resource.data.foto is string && request.resource.data.foto.size() < 700000;
+      }
       // ficha do dia (número sem repetir entre aparelhos)
       match /contadores/{dia} {
         allow read, write: if membro(l) && lavaAtivo(l);

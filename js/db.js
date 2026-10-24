@@ -215,6 +215,17 @@
     Object.assign(d, dados);
     return DB.gravar('despesas', d);
   };
+  // ---------------- avarias (riscos e amassados com foto, presos à placa) ----------------
+  DB.avariasDe = (placa) => Store.s.avarias.filter((a) => a.placa === placa && !a.excluido).sort((a, b) => (a.criada_em < b.criada_em ? -1 : 1));
+  DB.avariasAtivas = (placa) => DB.avariasDe(placa).filter((a) => a.status !== 'resolvida');
+  // na nuvem busca as do carro no banco (fotos não ficam no aparelho); na demonstração já estão aqui
+  DB.carregarAvarias = async (placa) => { if (Store.modo === 'nuvem' && placa) { try { await Nuvem.avarias(placa); } catch (e) {} } return DB.avariasDe(placa); };
+  DB.salvarAvaria = (av, dados) => {
+    if (!av) av = { id: U.uuid(), lava_id: lavaId(), placa: '', cliente_id: null, atendimento_id: null, descricao: '', foto: '', status: 'ativa', criada_em: agoraIso(), criada_por: App.user.nome, confirmada_em: null, resolvida_em: null, excluido: false };
+    Object.assign(av, dados);
+    return DB.gravar('avarias', av);
+  };
+
   // ---------------- fiado (o cliente paga depois) ----------------
   DB.fiados = () => Store.s.atendimentos.filter((a) => a.status === 'entregue' && a.fiado_aberto);
   DB.fiadoPorCliente = () => {

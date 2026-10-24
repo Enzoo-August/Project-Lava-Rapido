@@ -170,7 +170,9 @@
         ${linha('Recebeu o carro', U.esc(a.atendente_nome || ''))}
         ${linha('Observação', U.esc(a.obs || ''))}
         ${f && f.ativo ? linha('Fidelidade', `${f.saldo} de ${f.proximo ? f.proximo.pontos : f.meta} lavagens`) : ''}</div>
+        <div id="avDet"></div>
         <div class="lista-menu">
+          <button type="button" data-v="avarias">${U.icon('camera')}<span>Fotos de avaria do carro (risco, amassado)</span></button>
           ${c && U.telOk(c.telefone) ? `<button type="button" data-v="zap">${U.icon('zap')}<span>Chamar no WhatsApp</span></button><a href="tel:+55${U.telDig(c.telefone)}" data-fechar>${U.icon('fone')}<span>Ligar para ${U.esc(U.primeiroNome(c.nome))}</span></a>` : ''}
           ${c && U.telOk(c.telefone) && aberto ? `<button type="button" data-v="comprovante">${U.icon('olho')}<span>Enviar link de acompanhamento</span></button>` : ''}
           ${!bloqueado && a.status !== 'cancelado' && (aberto || DB.ehDono()) ? `<button type="button" data-v="servicos">${U.icon('editar')}<span>Trocar serviços${podeValor ? ' ou valor' : ''}</span></button>` : ''}
@@ -179,8 +181,13 @@
           ${!bloqueado && voltarPara ? `<button type="button" data-v="voltar">${U.icon('voltar')}<span>${voltarPara[1]}</span></button>` : ''}
           ${!bloqueado && aberto ? `<button type="button" class="perigo" data-v="cancelar">${U.icon('x')}<span>Cancelar este atendimento</span></button>` : ''}
         </div>`,
-      aoAbrir: (el, fechar) => { el.querySelector('.lista-menu').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b) return; if (b.dataset.v === 'zap') U.zap(c.telefone, `Olá, ${U.primeiroNome(c.nome)}! Aqui é ${DB.lava().nome}.`); if (b.dataset.v === 'comprovante') U.zap(c.telefone, DB.msg('entrada', a, c)); fechar(b.dataset.v); }); }
+      aoAbrir: (el, fechar) => {
+        // miniaturas das avarias ativas deste carro (buscadas no banco)
+        DB.carregarAvarias(a.placa).then(() => { const l = DB.avariasAtivas(a.placa), box = el.querySelector('#avDet'); if (!box || !l.length) return; box.innerHTML = `<p class="av-tit">${U.icon('camera')}<b>${l.length === 1 ? '1 avaria registrada' : l.length + ' avarias registradas'}</b></p><div class="av-lista">${l.map((x) => Avaria.miniHtml(x)).join('')}</div>`; });
+        Avaria.ligarVer(el, () => DB.avariasDe(a.placa));
+        el.querySelector('.lista-menu').addEventListener('click', (e) => { const b = e.target.closest('[data-v]'); if (!b) return; if (b.dataset.v === 'zap') U.zap(c.telefone, `Olá, ${U.primeiroNome(c.nome)}! Aqui é ${DB.lava().nome}.`); if (b.dataset.v === 'comprovante') U.zap(c.telefone, DB.msg('entrada', a, c)); fechar(b.dataset.v); }); }
     });
+    if (acao === 'avarias') return Avaria.galeria(a.placa, { cliente: c, atendimento: a, aoFechar: () => Atend.detalhe(a) });
     if (acao === 'voltar') { DB.status(a, voltarPara[0]); U.toast('Feito'); }
     if (acao === 'cancelar' && await U.confirmar('Cancelar este atendimento?', `${a.veiculo || 'Carro'} ${U.placaFmt(a.placa)} sai do pátio e não conta como lavagem.`, 'Cancelar atendimento', 'btn-perigo')) { DB.status(a, 'cancelado'); U.toast('Atendimento cancelado'); }
     if (acao === 'obs') await Atend.editarObs(a);

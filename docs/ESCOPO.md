@@ -28,6 +28,8 @@ Hoje o lava-rápido anota no papel: carro, placa, nome. Não sabe quantos carros
   - Serviço com o preço certo para o tamanho do veículo (moto, pequeno, médio, grande, extra). O último serviço do cliente já vem marcado.
   - Previsão de entrega, observações rápidas (risco, objeto de valor…), ajuste de valor.
   - Ficha do dia (número) para pendurar na chave.
+- **Avarias com foto:** na chegada, “Foto de risco ou amassado” (câmera ou galeria), com atalhos para escrever onde é (“Amassado na porta”). A foto fica presa à placa: na próxima chegada o aplicativo pergunta “ainda estão lá?” (Continua / Já foi resolvida). Aparece na ficha do pátio e no cadastro do cliente (galeria com resolvidas e “voltou a aparecer”) e dá para mandar as fotos ao cliente. A foto é reduzida (~100 KB) e guardada no próprio banco, porque o depósito de arquivos do Firebase exige o plano pago.
+- **Observação escrita à mão:** além das rápidas, “Escrever observação” (vira etiqueta; tocar tira).
 - **Pátio:** cada carro com um botão do próximo passo: Começar a lavar → Ficou pronto → Entregar. Carro atrasado fica vermelho.
 - **Ficou pronto:** abre o WhatsApp com o aviso escrito.
 - **Entregar:** mostra o total e pergunta a forma de pagamento.
@@ -107,7 +109,6 @@ Conferências feitas direto no banco, todas aprovadas: 46 em 02/10/2026 e, em 04
 | **Puxar o modelo pela placa** | Não existe consulta gratuita e legal no Brasil. | Contratar um serviço pago de consulta de placas (cobrado por consulta) e ligar numa função do banco. O aplicativo já está pronto para receber. |
 | **Ler a placa por foto** | Não feito. Digitar 7 caracteres no teclado próprio é mais rápido e não erra. | Leitura por IA (custo por foto) numa função do banco. |
 | **WhatsApp 100% automático** (sem tocar em enviar) | Hoje abre com a mensagem pronta e a pessoa toca em enviar: grátis e sem risco de bloqueio do número. | API oficial do WhatsApp (Meta), paga por mensagem e com aprovação. |
-| **Fotos do carro na chegada** (prova de risco e amassado) | Não feito; hoje é anotação em texto. | Armazenamento de imagens no banco. |
 | **Ícone e nome próprios de cada lava no celular** | O app instalado se chama "Lava Rápido"; dentro dele aparecem nome, logo e cor do lava. | Uma pasta de entrada por cliente (pequena, gerada por script). |
 | **Aviso sonoro de carro novo** para o dono | Não feito. | Notificação push. |
 | **Mensalistas / fiado, comissão por lavador** | Não feito. | Definir com os primeiros clientes. |

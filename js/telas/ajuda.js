@@ -39,6 +39,7 @@
         ${dono ? `<section class="cartao"><div class="cartao-cab"><h3>${U.icon('grafico')} O que só o dono vê</h3></div>${DONO.map((p) => passo('•', p[0], p[1])).join('')}</section>` : ''}
         <section class="cartao"><div class="cartao-cab"><h3>${U.icon('calendario')} Agenda e serviços especiais</h3></div>
           ${passo('•', 'Marcar horário', 'Em <b>Agenda</b>, toque em <b>Marcar horário</b>. No dia, toque em <b>Chegou</b> e a entrada já vem preenchida. <b>Lembrar</b> manda o lembrete no WhatsApp.')}
+          ${passo('•', 'Risco ou amassado', 'Na chegada, toque em <b>Foto de risco ou amassado</b>, tire a foto e escreva onde é. Fica salva no carro: na próxima vez o aplicativo pergunta se ainda está lá. Dá para mandar as fotos para o cliente.')}
           ${passo('•', 'Serviço que não está na lista', 'Na hora de escolher o serviço, toque em <b>Outro serviço</b> e escreva o nome e o valor.')}
           ${passo('•', 'Serviço “a combinar”', 'Se o serviço não tem preço na tabela, o aplicativo pergunta o valor quando você marca.')}
           ${passo('•', 'Carro que fica mais de um dia', 'Em <b>Fica pronto quando?</b>, toque em <b>Outro dia</b> e escolha o dia e a hora.')}</section>

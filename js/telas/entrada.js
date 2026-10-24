@@ -7,7 +7,7 @@
   let E = null;          // o que já foi respondido
   let tela = null;       // elemento da tela
 
-  const novo = () => ({ passo: 'placa', placa: '', veic: null, existente: false, cli: null, cliNovo: { nome: '', telefone: '' }, ids: [], extras: [], vals: {}, valor: null, nivel: null, previsao: null, previsaoEm: null, obs: '', busca: '', porteLivre: null, feito: null, ag: null });
+  const novo = () => ({ passo: 'placa', placa: '', veic: null, existente: false, cli: null, cliNovo: { nome: '', telefone: '' }, ids: [], extras: [], vals: {}, valor: null, nivel: null, previsao: null, previsaoEm: null, obs: '', busca: '', porteLivre: null, feito: null, ag: null, fotos: [], avAntigas: [], avResp: {}, fotosSalvas: [] });
   const TECLAS = ['1234567890', 'QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
   const OBS_RAPIDAS = ['Já tem risco ou amassado', 'Objetos de valor no carro', 'Chave fica no lava-rápido'];
   const ESPERA = 'Cliente espera no local';
@@ -76,7 +76,13 @@
     (v.ultimos_servicos || []).forEach((s) => { if (E.ids.includes(s.id) && !DB.preco(Store.por('servicos', s.id), v.porte) && s.valor > 0) E.vals[s.id] = s.valor; });
     if (E.ag) servicoDoAgendamento();
     if (!E.ids.length && !E.extras.length) { const s = DB.servicos().find((x) => DB.preco(x, v.porte) > 0); if (s) E.ids = [s.id]; }
+    carregarAvarias(placa);
     ir('servico');
+  };
+  // avarias que ficaram de visitas anteriores: na chegada pergunta se ainda estão lá
+  const carregarAvarias = (placa) => {
+    E.avAntigas = DB.avariasAtivas(placa);
+    DB.carregarAvarias(placa).then(() => { if (E.placa !== placa) return; E.avAntigas = DB.avariasAtivas(placa); if (E.passo === 'servico') desenhar(); });
   };
 
   // ---------------- procurar pelo nome ----------------
@@ -208,6 +214,14 @@
     return `<div class="fidel"><div class="fidel-txt">${U.icon('presente')}<span><b>${f.saldo}ª lavagem</b> · ${DB.faltamTxt(f)} para ganhar ${f.proximo.desconto}% de desconto</span></div>${selos}</div>`;
   }
 
+  const avAntigasHtml = () => (E.avAntigas.length ? `<div class="av-caixa">
+      <p class="av-tit">${U.icon('camera')}<b>${E.avAntigas.length === 1 ? 'Este carro tem 1 avaria registrada' : `Este carro tem ${E.avAntigas.length} avarias registradas`}</b></p>
+      <p class="mudo pequeno pergunte">Confira com o cliente: ainda estão lá?</p>
+      <div class="av-lista">${E.avAntigas.map((a) => Avaria.miniHtml(a, `<span class="av-resp"><button type="button" class="chip${E.avResp[a.id] === 'continua' ? ' ativo' : ''}" data-av-sim="${a.id}">Continua</button><button type="button" class="chip${E.avResp[a.id] === 'resolvida' ? ' ativo' : ''}" data-av-nao="${a.id}">Já foi resolvida</button></span>`)).join('')}</div>
+    </div>` : '');
+  const obsLivres = () => (E.obs ? E.obs.split(' · ') : []).filter((o) => !OBS_RAPIDAS.includes(o) && o !== ESPERA && o !== DB.LEVA);
+  const fotosHtml = () => (E.fotos.length ? `<div class="av-lista">${E.fotos.map((f) => Avaria.miniHtml({ ...f, criada_em: new Date().toISOString() }, `<button type="button" class="link" data-foto-tirar="${f.id}">Tirar esta foto</button>`)).join('')}</div>` : '');
+
   function passoServico() {
     const t = totais(), perguntar = DB.cfg().perguntarEntrega !== false, leva = temObs(DB.LEVA), espera = temObs(ESPERA), quando = quandoFica(), c = E.cli, temServico = E.ids.length + E.extras.length > 0;
     const podeValor = DB.ehDono() || DB.cfg().funcionarioMudaValor;
@@ -218,6 +232,7 @@
         <button type="button" class="link" data-acao="porte">${CAT.porteNome(E.veic.porte)} ${U.icon('editar')}</button>
       </div>
       ${fidelidadeHtml()}
+      ${avAntigasHtml()}
       <div class="servs">${Atend.servicosHtml(E.veic.porte, E.ids, E.vals)}${Atend.extrasHtml(E.extras)}
         <button type="button" class="serv livre" data-acao="extra">${U.icon('mais')}<span class="serv-nome"><b>Outro serviço</b><small>escrever o nome e o valor</small></span></button></div>
       ${perguntar ? `<p class="rotulo">Como o carro volta? <span class="mudo">(se precisar)</span></p>
@@ -226,7 +241,11 @@
       <div class="chips previsoes">${PREVISOES.map(([m, txt]) => `<button type="button" class="chip${!E.previsaoEm && E.previsao === m ? ' ativo' : ''}" data-prev="${m}">em ${txt}</button>`).join('')}
         <button type="button" class="chip${E.previsaoEm ? ' ativo' : ''}" data-acao="outrodia">${U.icon('calendario')} ${E.previsaoEm ? U.capitalizar(quandoTxt(E.previsaoEm)) : 'Escolher dia e hora'}</button></div>` : ''}
       <p class="rotulo">Observação <span class="mudo">(se precisar)</span></p>
-      <div class="chips">${OBS_RAPIDAS.map((o) => `<button type="button" class="chip${E.obs.includes(o) ? ' ativo' : ''}" data-obs="${U.esc(o)}">${o}</button>`).join('')}</div>
+      <div class="chips">${OBS_RAPIDAS.map((o) => `<button type="button" class="chip${E.obs.includes(o) ? ' ativo' : ''}" data-obs="${U.esc(o)}">${o}</button>`).join('')}
+        ${obsLivres().map((o) => `<button type="button" class="chip ativo" data-obs="${U.esc(o)}" title="Tocar para tirar">${U.esc(o)} ${U.icon('x')}</button>`).join('')}
+        <button type="button" class="chip" data-acao="obs-livre">${U.icon('editar')} Escrever observação</button></div>
+      <button type="button" class="btn btn-bloco btn-foto" data-acao="foto">${U.icon('camera')}<span>${E.fotos.length ? 'Tirar mais uma foto de avaria' : 'Foto de risco ou amassado'}</span></button>
+      ${fotosHtml()}
       <div class="pe-fixo">
         <div class="pe-total">
           <span>${t.desconto ? `<s>${U.brl(t.valor)}</s> ` : ''}<b>${U.brl(t.total)}</b>${t.desconto ? ` <em>−${E.nivel.desconto}%</em>` : ''}</span>
@@ -248,6 +267,11 @@
       previsaoMin: E.previsao, previsao: E.previsaoEm, obs: E.obs
     });
     if (E.ag) DB.salvarAgendamento(E.ag, { status: 'chegou', atendimento_id: a.id, cliente_id: a.cliente_id, placa: a.placa });
+    // avarias: as fotos novas ficam presas à placa; as antigas recebem a resposta da conferência
+    const agora = new Date().toISOString();
+    E.fotosSalvas = E.fotos.map((f) => DB.salvarAvaria(null, { placa: a.placa, cliente_id: a.cliente_id, atendimento_id: a.id, descricao: f.descricao, foto: f.foto }));
+    for (const av of E.avAntigas) { const r = E.avResp[av.id]; if (r === 'continua') DB.salvarAvaria(av, { confirmada_em: agora, atendimento_id: a.id }); if (r === 'resolvida') DB.salvarAvaria(av, { status: 'resolvida', resolvida_em: agora }); }
+    if (E.fotos.length && !(a.obs || '').includes('foto')) DB.editarAtend(a, { obs: [a.obs, `${E.fotos.length} foto${E.fotos.length > 1 ? 's' : ''} de avaria`].filter(Boolean).join(' · ') });
     E.feito = a; E.cli = DB.cliente(a.cliente_id);
     ir('feito');
   };
@@ -265,6 +289,7 @@
       ${fid ? `<p class="fidel-linha">${U.icon('presente')}<span>${fid}</span></p>` : ''}
       <p class="fala">Pode dizer: “Pronto, ${U.esc(U.primeiroNome(c.nome))}! Aviso no WhatsApp quando terminar.”</p>
       <div class="pilha">
+        ${E.fotosSalvas.length ? `<button type="button" class="btn btn-g btn-bloco" data-acao="enviar-fotos">${U.icon('camera')}<span>Mandar ${E.fotosSalvas.length === 1 ? 'a foto' : 'as fotos'} da avaria para o cliente</span></button>` : ''}
         ${U.telOk(c.telefone) ? `<button type="button" class="btn btn-zap btn-g btn-bloco" data-acao="comprovante">${U.icon('zap')}<span>Enviar confirmação no WhatsApp</span></button>` : ''}
         <button type="button" class="btn btn-marca btn-g btn-bloco" data-acao="outro">${U.icon('mais')}<span>Chegou outro carro</span></button>
         <a class="btn btn-g btn-bloco" href="#/${App.user.perfil === 'dono' ? 'inicio' : 'balcao'}">Voltar ao início</a>
@@ -303,6 +328,10 @@
     }
     if ((b = alvo('[data-tirar-extra]'))) { E.extras = E.extras.filter((x) => x.id !== b.dataset.tirarExtra); E.valor = null; return desenhar(); }
     if ((b = alvo('[data-prev]'))) { const m = Number(b.dataset.prev); E.previsao = !E.previsaoEm && E.previsao === m ? null : m; E.previsaoEm = null; return desenhar(); }
+    if ((b = alvo('[data-av-ver]'))) { const av = Store.por('avarias', b.dataset.avVer) || E.fotos.find((f) => f.id === b.dataset.avVer); if (av) Avaria.ver({ criada_em: new Date().toISOString(), ...av }); return; }
+    if ((b = alvo('[data-av-sim]'))) { const id = b.dataset.avSim; E.avResp[id] = E.avResp[id] === 'continua' ? null : 'continua'; return desenhar(); }
+    if ((b = alvo('[data-av-nao]'))) { const id = b.dataset.avNao; E.avResp[id] = E.avResp[id] === 'resolvida' ? null : 'resolvida'; return desenhar(); }
+    if ((b = alvo('[data-foto-tirar]'))) { E.fotos = E.fotos.filter((f) => f.id !== b.dataset.fotoTirar); return desenhar(); }
     if ((b = alvo('[data-obs]'))) { const o = b.dataset.obs, l = E.obs ? E.obs.split(' · ') : []; E.obs = (l.includes(o) ? l.filter((x) => x !== o) : [...l, o]).join(' · '); return desenhar(); }
     if ((b = alvo('[data-nivel]'))) { const n = Number(b.dataset.nivel); E.nivel = n ? DB.fidelidade(E.cli, 1).alcancados.find((x) => x.pontos === n) || null : null; return desenhar(); }
     if (!(b = alvo('[data-acao]')) || b.disabled) return;
@@ -327,6 +356,20 @@
       return;
     }
     if (acao === 'comprovante') return U.zap(E.cli.telefone, DB.msg('entrada', E.feito, E.cli));
+    if (acao === 'enviar-fotos') return Avaria.enviar(E.fotosSalvas, E.cli, E.feito.placa);
+    if (acao === 'foto') {
+      const f = await Avaria.nova(); if (!f) return;
+      E.fotos = [...E.fotos, { id: 'f-' + U.uuid().slice(0, 8), ...f }];
+      if (!E.obs.includes(OBS_RAPIDAS[0])) E.obs = [...(E.obs ? E.obs.split(' · ') : []), OBS_RAPIDAS[0]].join(' · ');
+      return desenhar();
+    }
+    if (acao === 'obs-livre') {
+      const t = await U.modal({ titulo: 'Observação', html: '<label class="campo"><span>Escreva o que precisa ficar anotado</span><textarea name="t" rows="3" maxlength="200" placeholder="Ex.: cliente pediu para não mexer no som" autocapitalize="sentences"></textarea></label>',
+        aoAbrir: (el) => setTimeout(() => el.querySelector('textarea').focus(), 50),
+        acoes: [{ txt: 'Voltar', valor: false }, { txt: 'Anotar', cls: 'btn-marca', aoTocar: (el) => { const v = el.querySelector('textarea').value.replace(/\s*·\s*/g, ', ').trim(); if (!v) { U.toast('Escreva a observação.', 'bad'); return false; } return v; } }] });
+      if (t) { E.obs = [...(E.obs ? E.obs.split(' · ') : []), t].join(' · '); desenhar(); }
+      return;
+    }
     if (acao === 'porte') {
       const p = await U.modal({ titulo: 'Tamanho do veículo', empilhar: true, html: '<p class="mudo">O preço da lavagem muda com o tamanho.</p>', acoes: CAT.PORTES.map((x) => ({ txt: `${x.nome} (${x.ex})`, cls: x.id === E.veic.porte ? 'btn-marca' : '', valor: x.id })) });
       if (p) { E.veic.porte = p; E.valor = null; desenhar(); }
